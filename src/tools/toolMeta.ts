@@ -10,6 +10,30 @@ const sheetsWrite = BASE_TOOL_META.createGoogleSheet;
 const slidesRead = BASE_TOOL_META.getGoogleSlidesContent;
 const slidesWrite = BASE_TOOL_META.createGoogleSlides;
 
+const activityRead: ToolMeta = {
+  opKind: 'read',
+  acceptableScopes: [
+    'https://www.googleapis.com/auth/drive.activity.readonly',
+    'https://www.googleapis.com/auth/drive.activity',
+  ],
+};
+const labelCatalogRead: ToolMeta = {
+  opKind: 'read',
+  acceptableScopes: [
+    'https://www.googleapis.com/auth/drive.labels.readonly',
+    'https://www.googleapis.com/auth/drive.labels',
+    'https://www.googleapis.com/auth/drive.admin.labels.readonly',
+    'https://www.googleapis.com/auth/drive.admin.labels',
+  ],
+};
+const labelCatalogWrite: ToolMeta = {
+  opKind: 'write',
+  acceptableScopes: [
+    'https://www.googleapis.com/auth/drive.labels',
+    'https://www.googleapis.com/auth/drive.admin.labels',
+  ],
+};
+
 export const TOOL_META: Record<string, ToolMeta> = {
   ...BASE_TOOL_META,
   batch_update_document: docsWrite,
@@ -60,6 +84,19 @@ export const TOOL_META: Record<string, ToolMeta> = {
   get_download_operation: driveRead,
   generate_drive_ids: driveWrite,
   empty_trash: driveWrite,
+  list_file_labels: driveRead,
+  modify_file_labels: driveWrite,
+  list_drive_approvals: driveRead,
+  manage_drive_approval: driveWrite,
+  query_drive_activity: activityRead,
+  drive_labels_catalog: labelCatalogRead,
+  manage_drive_label_schema: labelCatalogWrite,
+  get_shared_drive: driveRead,
+  manage_shared_drive: driveWrite,
+  get_drive_start_page_token: driveRead,
+  list_drive_changes: driveRead,
+  list_trash: driveRead,
+  restore_from_trash: driveWrite,
 };
 
 export const ADMIN_TOOLS: ReadonlySet<string> = new Set(

@@ -11,6 +11,12 @@ export const SCOPE_ALIASES: Record<string, string> = {
   presentations: 'https://www.googleapis.com/auth/presentations',
   calendar: 'https://www.googleapis.com/auth/calendar',
   'calendar.events': 'https://www.googleapis.com/auth/calendar.events',
+  'drive.activity': 'https://www.googleapis.com/auth/drive.activity',
+  'drive.activity.readonly': 'https://www.googleapis.com/auth/drive.activity.readonly',
+  'drive.labels': 'https://www.googleapis.com/auth/drive.labels',
+  'drive.labels.readonly': 'https://www.googleapis.com/auth/drive.labels.readonly',
+  'drive.admin.labels': 'https://www.googleapis.com/auth/drive.admin.labels',
+  'drive.admin.labels.readonly': 'https://www.googleapis.com/auth/drive.admin.labels.readonly',
 };
 
 export const SCOPE_PRESETS: Record<string, string[]> = {
@@ -26,21 +32,25 @@ export const DEFAULT_SCOPES: readonly string[] = [
 ].map((s) => SCOPE_ALIASES[s]);
 
 /**
- * Scopes requested in addition to the user's DEFAULT_SCOPES when adding a new
- * account via `manage_accounts add`, so we can discover the account's email
- * and Google-stable subject id immediately after consent. Never added to
- * DEFAULT_SCOPES to avoid forcing re-consent on existing users.
+ * Optional power-pack scopes are deliberately aliases only. They are NOT added
+ * to DEFAULT_SCOPES, so ordinary Drive parity does not silently broaden consent.
+ * Operators can opt in through GOOGLE_DRIVE_MCP_SCOPES when they want Drive
+ * Activity or Drive Labels schema tools.
  */
+export const OPTIONAL_POWER_SCOPES: readonly string[] = [
+  SCOPE_ALIASES['drive.activity.readonly'],
+  SCOPE_ALIASES['drive.activity'],
+  SCOPE_ALIASES['drive.labels.readonly'],
+  SCOPE_ALIASES['drive.labels'],
+  SCOPE_ALIASES['drive.admin.labels.readonly'],
+  SCOPE_ALIASES['drive.admin.labels'],
+];
+
 export const USERINFO_SCOPES: readonly string[] = [
   'openid',
   'https://www.googleapis.com/auth/userinfo.email',
 ];
 
-/**
- * Resolve OAuth scopes from `GOOGLE_DRIVE_MCP_SCOPES` env var.
- * Accepts comma-separated aliases (e.g. "drive,documents") or full URLs.
- * Throws on unknown aliases so mis-configurations surface immediately.
- */
 export function resolveOAuthScopes(): string[] {
   const raw = process.env.GOOGLE_DRIVE_MCP_SCOPES?.trim();
   if (!raw) return [...DEFAULT_SCOPES];
@@ -62,21 +72,10 @@ export function resolveOAuthScopes(): string[] {
   return [...new Set(scopes)];
 }
 
-/**
- * Scopes requested by `manage_accounts add`: the operator-configured OAuth scopes
- * (`GOOGLE_DRIVE_MCP_SCOPES` via `resolveOAuthScopes`) plus `USERINFO_SCOPES` so the
- * new account's email and stable subject id can be discovered right after consent.
- * Mirrors the boot flow, which also honors `GOOGLE_DRIVE_MCP_SCOPES`.
- */
 export function resolveAddAccountScopes(): string[] {
   return [...resolveOAuthScopes(), ...USERINFO_SCOPES];
 }
 
-/**
- * Split an OAuth scope string (space/whitespace-separated per RFC 6749) into a
- * deduped list of individual scopes. The single source of truth for scope-string
- * tokenization across the resolver, store, and diagnostics.
- */
 export function splitScopes(scope: string | null | undefined): string[] {
   if (!scope) return [];
   return [...new Set(scope.split(/\s+/).filter(Boolean))];

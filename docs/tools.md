@@ -1,8 +1,8 @@
 # Tool reference
 
-This Nick Drive fork exposes **164 MCP tools**. It preserves every upstream tool, adds the exact current 45-name OpenAI Google Drive compatibility surface, and adds four Drive power endpoints.
+This Nick Drive fork exposes **177 MCP tools**. It preserves every upstream tool, adds the exact current 45-name OpenAI Google Drive compatibility surface, and adds seventeen opt-in/power endpoints.
 
-The original detailed upstream tool guide is preserved at [tools-upstream.md](tools-upstream.md). The list below is canonical for the fork and is checked against the runtime registry in CI.
+The original detailed upstream guide is preserved at [tools-upstream.md](tools-upstream.md). This file is the canonical registry index for the fork and is checked against the runtime in tests.
 
 ## Registered tools
 
@@ -166,7 +166,20 @@ The original detailed upstream tool guide is preserved at [tools-upstream.md](to
 - **share_file** - OpenAI-compatible Google Drive endpoint.
 - **update_file** - OpenAI-compatible Google Drive endpoint.
 - **upload_file** - OpenAI-compatible Google Drive endpoint.
-- **download_file_lro** - Nick Drive power extension.
-- **get_download_operation** - Nick Drive power extension.
-- **generate_drive_ids** - Nick Drive power extension.
-- **empty_trash** - Nick Drive power extension.
+- **download_file_lro** - Nick Drive modern Drive power extension.
+- **get_download_operation** - Nick Drive modern Drive power extension.
+- **generate_drive_ids** - Nick Drive modern Drive power extension.
+- **empty_trash** - Nick Drive modern Drive power extension.
+- **list_file_labels** - Nick Drive extended Google Drive/Workspace power extension.
+- **modify_file_labels** - Nick Drive extended Google Drive/Workspace power extension.
+- **list_drive_approvals** - Nick Drive extended Google Drive/Workspace power extension.
+- **manage_drive_approval** - Nick Drive extended Google Drive/Workspace power extension.
+- **query_drive_activity** - Nick Drive extended Google Drive/Workspace power extension.
+- **drive_labels_catalog** - Nick Drive extended Google Drive/Workspace power extension.
+- **manage_drive_label_schema** - Nick Drive extended Google Drive/Workspace power extension.
+- **get_shared_drive** - Nick Drive extended Google Drive/Workspace power extension.
+- **manage_shared_drive** - Nick Drive extended Google Drive/Workspace power extension.
+- **get_drive_start_page_token** - Nick Drive extended Google Drive/Workspace power extension.
+- **list_drive_changes** - Nick Drive extended Google Drive/Workspace power extension.
+- **list_trash** - Nick Drive extended Google Drive/Workspace power extension.
+- **restore_from_trash** - Nick Drive extended Google Drive/Workspace power extension.

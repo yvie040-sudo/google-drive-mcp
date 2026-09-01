@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, nick/openai-drive-parity]
+    branches: [master]
   pull_request:
     branches: [master]
 
@@ -33,6 +33,9 @@ jobs:
         run: npm run build
 
       - name: Validate MCP Registry metadata
+        # Blocks on genuinely invalid metadata (exit 1) but soft-passes when the
+        # live registry is merely unreachable (exit 3), so unrelated PRs are not
+        # failed by a registry outage. The release workflow validates again.
         run: |
           set +e
           npm run registry:validate
