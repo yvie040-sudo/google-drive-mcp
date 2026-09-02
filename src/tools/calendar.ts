@@ -1,3 +1,5 @@
+export * from './calendar-base.js';
+
 import * as base from './calendar-base.js';
 import * as parity from './openai-drive-parity.js';
 import * as extended from './google-drive-extended.js';
