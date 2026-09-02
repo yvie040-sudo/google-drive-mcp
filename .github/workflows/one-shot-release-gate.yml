@@ -35,24 +35,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo 'smoke: packing package'
           PACK_FILE="$(npm pack --silent | tail -n 1)"
           test -n "$PACK_FILE"
           test -f "$PACK_FILE"
+          echo "smoke: packed $PACK_FILE"
+
           PACKAGE_CONTENTS="$(tar -tf "$PACK_FILE")"
           grep -Fxq 'package/dist/index.js' <<<"$PACKAGE_CONTENTS"
           grep -Fxq 'package/dist/hosted-env.js' <<<"$PACKAGE_CONTENTS"
           grep -Fxq 'package/scripts/start-hosted.js' <<<"$PACKAGE_CONTENTS"
           grep -Fxq 'package/docs/openai-drive-parity.md' <<<"$PACKAGE_CONTENTS"
+          echo 'smoke: required files present in tarball'
 
           TMP_DIR="$(mktemp -d)"
           trap 'rm -rf "$TMP_DIR"' EXIT
           cd "$TMP_DIR"
           npm init -y >/dev/null 2>&1
-          npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACK_FILE" >/dev/null 2>&1
+          echo 'smoke: installing tarball into clean project'
+          npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACK_FILE"
+          echo 'smoke: tarball install complete'
+
           PKG_DIR='node_modules/@piotr-agier/google-drive-mcp'
           test -f "$PKG_DIR/dist/index.js"
           test -f "$PKG_DIR/scripts/start-hosted.js"
+          echo 'smoke: installed package files present'
+
           node "$PKG_DIR/dist/index.js" --version | grep -F '2.6.0'
+          echo 'smoke: installed CLI version works'
 
           set +e
           MCP_TEAM_STORE=memory \
@@ -71,3 +81,4 @@ jobs:
           fi
           grep -F 'Team mode enabled' hosted-smoke.log
           grep -F 'oauth/google/callback' hosted-smoke.log
+          echo 'smoke: hosted launcher remained healthy until timeout'
