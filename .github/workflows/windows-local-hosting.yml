@@ -172,4 +172,19 @@ jobs:
             throw 'Scheduled Task was not removed during cleanup.'
           }
           $listener = Get-NetTCPConnection -LocalPort 18943 -State Listen -ErrorAction SilentlyContinue
-          if ($listener) { throw 'Scheduled Task process tree was not fully stopped during cleanup.' }
+          if ($listener) {
+            Write-Host '=== Remaining listener evidence ==='
+            $listener | Select-Object LocalAddress, LocalPort, OwningProcess, State | Format-List | Out-String | Write-Host
+            foreach ($ownerPid in @($listener.OwningProcess | Select-Object -Unique)) {
+              $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ownerPid" -ErrorAction SilentlyContinue
+              if ($process) {
+                $process | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine | Format-List | Out-String | Write-Host
+                $parent = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.ParentProcessId)" -ErrorAction SilentlyContinue
+                if ($parent) {
+                  Write-Host '=== Parent process evidence ==='
+                  $parent | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine | Format-List | Out-String | Write-Host
+                }
+              }
+            }
+            throw 'Scheduled Task process tree was not fully stopped during cleanup.'
+          }
