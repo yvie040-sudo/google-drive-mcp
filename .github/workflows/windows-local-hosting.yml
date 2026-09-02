@@ -1,0 +1,127 @@
+name: windows-local-hosting
+
+on:
+  push:
+    branches:
+      - nick/windows-local-hosting
+    paths:
+      - .github/workflows/windows-local-hosting.yml
+      - scripts/windows/**
+      - src/**
+      - scripts/start-hosted.js
+      - package.json
+      - package-lock.json
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/windows-local-hosting.yml
+      - scripts/windows/**
+      - src/**
+      - scripts/start-hosted.js
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Parse Windows PowerShell scripts
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem scripts\windows\*.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              Write-Host "Parser errors in $($_.FullName):"
+              $errors | ForEach-Object { Write-Host $_.Message }
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: DPAPI import and hosted runtime smoke
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $runtime = Join-Path $env:RUNNER_TEMP 'nick-drive-mcp-smoke'
+          New-Item -ItemType Directory -Path $runtime -Force | Out-Null
+
+          $input = Join-Path $runtime 'google-web.json'
+          $secretPath = Join-Path $runtime 'hosted-secrets.json'
+          $storePath = Join-Path $runtime 'team-store.json'
+          $fixture = @{
+            web = @{
+              client_id = 'ci.apps.googleusercontent.com'
+              client_secret = 'ci-secret-never-persist-plaintext'
+            }
+          }
+          $fixture | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $input -Encoding UTF8
+
+          & .\scripts\windows\import-google-web-credentials.ps1 -InputPath $input -OutputPath $secretPath -DeleteSource
+          if (-not (Test-Path -LiteralPath $secretPath)) { throw 'Protected secret file was not created.' }
+          if (Test-Path -LiteralPath $input) { throw 'Source credentials file was not deleted.' }
+          if ((Get-Content -LiteralPath $secretPath -Raw) -match 'ci-secret-never-persist-plaintext') {
+            throw 'Client secret leaked into the protected credential file in plaintext.'
+          }
+
+          $nodePath = (Get-Command node.exe).Source
+          $runner = Join-Path $root 'scripts\windows\run-local-host.ps1'
+          $args = @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', ('"' + $runner + '"'),
+            '-RepoPath', ('"' + $root + '"'),
+            '-IssuerUrl', 'https://drive-mcp.example.invalid',
+            '-NodePath', ('"' + $nodePath + '"'),
+            '-Port', '18942',
+            '-SecretPath', ('"' + $secretPath + '"'),
+            '-StorePath', ('"' + $storePath + '"'),
+            '-TrustProxyHops', '1'
+          ) -join ' '
+
+          $proc = Start-Process powershell.exe -ArgumentList $args -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 20; $i++) {
+              Start-Sleep -Seconds 1
+              try {
+                Invoke-WebRequest -Uri 'http://127.0.0.1:18942/mcp' -Method Get -Headers @{ Accept = 'text/event-stream' } -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop | Out-Null
+              } catch {
+                if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 401) {
+                  $ready = $true
+                  break
+                }
+              }
+            }
+            if (-not $ready) { throw 'Hosted runtime never returned the expected unauthenticated HTTP 401.' }
+            if (-not (Test-Path -LiteralPath $storePath)) { throw 'File-backed team store was not created.' }
+          } finally {
+            cmd /c "taskkill /PID $($proc.Id) /T /F" | Out-Null
+          }
+
+          Start-Sleep -Seconds 1
+          $listener = Get-NetTCPConnection -LocalPort 18942 -State Listen -ErrorAction SilentlyContinue
+          if ($listener) { throw 'Hosted runtime process tree was not fully cleaned up.' }
