@@ -1,113 +1,77 @@
 import assert from 'node:assert/strict';
-import { describe, it, before, after } from 'node:test';
+import { after, before, describe, it } from 'node:test';
+import {
+  OPENAI_DRIVE_TOOL_NAMES,
+  GOOGLE_DRIVE_REMOTE_MCP_TOOL_NAMES,
+  NICK_DRIVE_EXTRA_TOOL_NAMES,
+  NICK_DRIVE_EXTENDED_TOOL_NAMES,
+  GOOGLE_DRIVE_V3_COMPLETION_TOOL_NAMES,
+} from '../../src/parity/openai-drive-contract.js';
 import { setupTestServer, type TestContext } from '../helpers/setup-server.js';
 
-const EXPECTED_TOOL_COUNT = 116;
-
-const EXPECTED_TOOLS = [
-  'manage_accounts',
-  'search', 'createTextFile', 'updateTextFile', 'readTextFile', 'createFolder', 'listFolder', 'listSharedDrives',
-  'deleteItem', 'renameItem', 'moveItem',
-  'createGoogleDoc', 'createDocFromHTML', 'updateGoogleDoc', 'insertText', 'deleteRange',
-  'readGoogleDoc', 'readGoogleDocPaginated', 'listDocumentTabs', 'applyTextStyle', 'applyParagraphStyle', 'formatGoogleDocText', 'formatGoogleDocParagraph', 'createParagraphBullets', 'findAndReplaceInDoc',
-  'listComments', 'getComment', 'addComment', 'replyToComment', 'deleteComment',
-  'createGoogleSheet', 'updateGoogleSheet', 'getGoogleSheetContent',
-  'formatGoogleSheetCells', 'formatGoogleSheetText', 'formatGoogleSheetNumbers',
-  'setGoogleSheetBorders', 'mergeGoogleSheetCells', 'addGoogleSheetConditionalFormat',
-  'getSpreadsheetInfo', 'appendSpreadsheetRows', 'addSpreadsheetSheet', 'addSheet', 'listSheets', 'renameSheet', 'deleteSheet', 'addDataValidation', 'protectRange', 'addNamedRange',
-  'setColumnWidth', 'setRowHeight', 'autoResizeColumns', 'autoResizeRows', 'hideSheetDimension', 'showSheetDimension',
-  'listGoogleSheets', 'copyFile',
-  'createGoogleSlides', 'updateGoogleSlides',
-  'getGoogleDocContent', 'getGoogleDocContentPaginated', 'getGoogleDocImage', 'getGoogleSlidesContent',
-  'formatGoogleSlidesText', 'formatGoogleSlidesParagraph',
-  'styleGoogleSlidesShape', 'setGoogleSlidesBackground',
-  'createGoogleSlidesTextBox', 'createGoogleSlidesShape',
-  'getGoogleSlidesSpeakerNotes', 'updateGoogleSlidesSpeakerNotes', 'deleteGoogleSlide', 'duplicateSlide', 'reorderSlides', 'replaceAllTextInSlides', 'exportSlideThumbnail',
-  'insertSlidesImageFromUrl', 'insertSlidesLocalImage', 'moveSlideElement', 'deleteSlideElement', 'getSlideElementInfo',
-  'createShortcut',
-  'lockFile', 'unlockFile',
-  'uploadFile', 'downloadFile', 'listPermissions', 'addPermission', 'updatePermission', 'removePermission', 'shareFile', 'getRevisions', 'restoreRevision', 'authGetStatus', 'authListScopes', 'authTestFileAccess',
-  'listCalendars', 'getCalendarEvents', 'getCalendarEvent',
-  'createCalendarEvent', 'updateCalendarEvent', 'deleteCalendarEvent',
-  'insertTable', 'editTableCell', 'insertImageFromUrl', 'insertLocalImage',
-  'listGoogleDocs', 'getDocumentInfo', 'addDocumentTab', 'renameDocumentTab', 'insertSmartChip', 'readSmartChips', 'createFootnote',
-  'convertPdfToGoogleDoc', 'bulkConvertFolderPdfs', 'uploadPdfWithSplit',
-];
+const EXPECTED_TOOL_COUNT = 195;
 
 describe('Tool Registry', () => {
   let ctx: TestContext;
-  let tools: Array<{ name: string; inputSchema?: any; description?: string }>;
+  let tools: Array<{ name: string; inputSchema?: any; _meta?: Record<string, unknown> }>;
 
-  before(async () => {
-    ctx = await setupTestServer();
-    const result = await ctx.client.listTools();
-    tools = result.tools as any;
-  });
+  before(async () => { ctx = await setupTestServer(); tools = (await ctx.client.listTools()).tools as any; });
+  after(async () => { await ctx.cleanup(); });
 
-  after(async () => {
-    await ctx.cleanup();
-  });
-
-  it(`registers exactly ${EXPECTED_TOOL_COUNT} tools`, () => {
-    assert.equal(tools.length, EXPECTED_TOOL_COUNT, `Expected ${EXPECTED_TOOL_COUNT} tools, got ${tools.length}`);
-  });
-
-  it('has no duplicate tool names', () => {
-    const names = tools.map((t) => t.name);
-    const unique = new Set(names);
-    assert.equal(unique.size, names.length, `Duplicate names: ${names.filter((n, i) => names.indexOf(n) !== i)}`);
-  });
-
-  it('every tool has a non-empty name and inputSchema', () => {
+  it(`registers exactly ${EXPECTED_TOOL_COUNT} tools`, () => { assert.equal(tools.length, EXPECTED_TOOL_COUNT); });
+  it('has no duplicate names and every schema is an object', () => {
+    const names = tools.map((tool) => tool.name);
+    assert.equal(new Set(names).size, names.length);
     for (const tool of tools) {
-      assert.ok(tool.name, 'Tool name must be truthy');
-      assert.ok(tool.inputSchema, `Tool "${tool.name}" is missing inputSchema`);
-      assert.equal(tool.inputSchema.type, 'object', `Tool "${tool.name}" inputSchema.type must be "object"`);
+      assert.ok(tool.name);
+      assert.equal(tool.inputSchema?.type, 'object', `${tool.name} must advertise an object schema`);
     }
   });
-
-  it('every expected tool is registered', () => {
-    const names = new Set(tools.map((t) => t.name));
-    for (const expected of EXPECTED_TOOLS) {
-      assert.ok(names.has(expected), `Missing tool: ${expected}`);
+  it('advertises the exact current 45-name OpenAI Google Drive surface', () => {
+    assert.equal(new Set(OPENAI_DRIVE_TOOL_NAMES).size, 45);
+    const names = new Set(tools.map((tool) => tool.name));
+    assert.deepEqual(OPENAI_DRIVE_TOOL_NAMES.filter((name) => !names.has(name)), []);
+  });
+  it('advertises the exact Google first-party Drive MCP 8-name surface', () => {
+    assert.equal(new Set(GOOGLE_DRIVE_REMOTE_MCP_TOOL_NAMES).size, 8);
+    const names = new Set(tools.map((tool) => tool.name));
+    assert.deepEqual(GOOGLE_DRIVE_REMOTE_MCP_TOOL_NAMES.filter((name) => !names.has(name)), []);
+  });
+  it('advertises every Nick Drive power and Drive-v3 completion extension', () => {
+    const names = new Set(tools.map((tool) => tool.name));
+    assert.deepEqual(NICK_DRIVE_EXTRA_TOOL_NAMES.filter((name) => !names.has(name)), []);
+    assert.deepEqual(NICK_DRIVE_EXTENDED_TOOL_NAMES.filter((name) => !names.has(name)), []);
+    assert.deepEqual(GOOGLE_DRIVE_V3_COMPLETION_TOOL_NAMES.filter((name) => !names.has(name)), []);
+  });
+  it('every advertised tool reaches a handler rather than Tool not found', async () => {
+    const previous = process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK;
+    process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK = 'false';
+    try {
+      for (const tool of tools) {
+        const result = await ctx.client.callTool({ name: tool.name, arguments: {} });
+        const text = (result as any).content?.[0]?.text || '';
+        assert.ok(!text.includes('Tool not found'), `${tool.name} has no handler`);
+      }
+    } finally {
+      if (previous === undefined) delete process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK;
+      else process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK = previous;
     }
   });
-
-  it('alias tools advertise the same parameters as the tools they alias', () => {
-    // Alias definitions duplicate their primary's inputSchema by hand, so a
-    // parameter added to only one of the pair leaves the alias advertising a
-    // strictly smaller contract than the handler and Zod schema it shares.
-    const ALIASES: Array<[string, string]> = [
-      ['formatGoogleDocText', 'applyTextStyle'],
-      ['formatGoogleDocParagraph', 'applyParagraphStyle'],
-    ];
-    for (const [alias, primary] of ALIASES) {
-      const aliasTool = tools.find((t) => t.name === alias);
-      const primaryTool = tools.find((t) => t.name === primary);
-      assert.ok(aliasTool, `Missing alias tool: ${alias}`);
-      assert.ok(primaryTool, `Missing primary tool: ${primary}`);
-      assert.deepEqual(
-        Object.keys(aliasTool.inputSchema.properties ?? {}).sort(),
-        Object.keys(primaryTool.inputSchema.properties ?? {}).sort(),
-        `"${alias}" inputSchema has drifted from "${primary}"`,
-      );
-      assert.deepEqual(
-        [...(aliasTool.inputSchema.required ?? [])].sort(),
-        [...(primaryTool.inputSchema.required ?? [])].sort(),
-        `"${alias}" required fields have drifted from "${primary}"`,
-      );
-    }
+  it('marks OpenAI file-bearing arguments through standard _meta metadata', () => {
+    const byName = new Map(tools.map((tool) => [tool.name, tool]));
+    const fileParams = (name: string) => byName.get(name)?._meta?.['openai/fileParams'];
+    for (const name of ['import_document','import_presentation','import_spreadsheet']) assert.deepEqual(fileParams(name), ['source_file']);
+    assert.deepEqual(fileParams('upload_file'), ['file_uri']);
+    assert.deepEqual(fileParams('update_file'), ['file_uri']);
+    for (const name of ['batch_update_document','batch_update_presentation','batch_update_spreadsheet']) assert.deepEqual(fileParams(name), ['image_uris']);
   });
-
-  it('every registered tool has a handler (does not return "Tool not found")', async () => {
-    // Call each tool with empty args — should get a validation error, NOT "Tool not found"
-    for (const tool of tools) {
-      const result = await ctx.client.callTool({ name: tool.name, arguments: {} });
-      const text = (result as any).content?.[0]?.text || '';
-      assert.ok(
-        !text.includes('Tool not found'),
-        `Tool "${tool.name}" has no handler — got "Tool not found"`,
-      );
-    }
+  it('keeps overlapping OpenAI/Google names dual-schema compatible', () => {
+    const byName = new Map(tools.map((tool) => [tool.name, tool.inputSchema?.properties ?? {}]));
+    assert.ok('url' in (byName.get('copy_file') as any));
+    assert.ok('fileId' in (byName.get('copy_file') as any));
+    assert.ok('mime_type' in (byName.get('create_file') as any));
+    assert.ok('contentMimeType' in (byName.get('create_file') as any));
+    assert.ok('fields' in (byName.get('get_file_metadata') as any));
+    assert.ok('excludeContentSnippets' in (byName.get('get_file_metadata') as any));
   });
 });

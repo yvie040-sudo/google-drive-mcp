@@ -28,8 +28,16 @@ describe('Drive tools', () => {
       assert.equal(res.isError, false);
     });
 
-    it('validation error on empty args', async () => {
+    it('empty args browse Drive in OpenAI-compatible mode', async () => {
+      ctx.mocks.drive.service.files.list._setImpl(async () => ({ data: { files: [] } }));
       const res = await callTool(ctx.client, 'search', {});
+      assert.equal(res.isError, false);
+      const listCalls = ctx.mocks.drive.tracker.getCalls('files.list');
+      assert.ok(listCalls.length >= 1);
+    });
+
+    it('explicit empty query still fails validation', async () => {
+      const res = await callTool(ctx.client, 'search', { query: '' });
       assert.equal(res.isError, true);
     });
 

@@ -1,172 +1,84 @@
-# Google Drive MCP Server
+# Nick Drive MCP
 
-[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fpiotr-agier%2Fgoogle-drive-mcp.svg)](https://mcptoplist.com/server/glama%2Fpiotr-agier%2Fgoogle-drive-mcp)
+A self-hosted Google Drive, Docs, Sheets and Slides MCP fork based on `piotr-agier/google-drive-mcp` v2.6.0.
 
-Connect an MCP client to Google Drive, Docs, Sheets, Slides, and Calendar through one self-hosted server. Search and organize files, create and edit Workspace content, manage sharing, and automate multi-step workflows while keeping control of the Google identity and credentials used for every call.
+This fork exposes **195 MCP tools**. It preserves the full upstream toolset, adds the exact current 45-name OpenAI Google Drive compatibility surface, adds the current 8-name Google first-party Drive MCP surface, and completes the practical non-deprecated Google Drive v3 REST resource surface with explicit power endpoints.
 
-## Why this server
+## What this fork adds
 
-- **Drive-first workflows:** 116 tools cover file management, Shared Drives, permissions, revisions, rich Docs editing, Sheets formatting, Slides authoring, and Calendar events.
-- **Local or hosted:** use stdio for a personal desktop client, Streamable HTTP for a hosted integration, or OAuth-protected team mode for a shared service.
-- **Identity control:** local OAuth supports multiple Google accounts and per-tool account selection; service accounts and externally managed OAuth tokens are also supported.
-- **Agent-friendly access:** tools expose targeted operations, while the optional `gdrive:///` resource interface supports direct reading and discovery.
-- **Open and self-hosted:** credentials and tokens stay in the environment you operate.
+- Exact OpenAI Drive tool names such as `fetch`, `update_file`, `upload_file`, `batch_update_document`, `get_spreadsheet_cells`, and `create_presentation_from_template`.
+- Compatibility with Google’s current first-party Drive MCP names: `copy_file`, `create_file`, `download_file_content`, `get_file_metadata`, `get_file_permissions`, `list_recent_files`, `read_file_content`, and `search_files`.
+- The three overlapping OpenAI/Google names (`copy_file`, `create_file`, `get_file_metadata`) accept both provider dialects without duplicate registration.
+- Complete practical coverage of current non-deprecated Drive v3 REST resources: about, access proposals, approvals, apps, changes, channels, comments, drives, files, operations, permissions, replies, and revisions.
+- Raw Docs, Sheets and Slides `batchUpdate` passthrough with optional file-backed image sidecars.
+- Permanent deletion, revision content reads/mutation, generic comment/reply CRUD, permission lookup, access-proposal resolution, profile/metadata reads, native Office imports, Drive sharing, labels, approvals, Shared Drive administration, changes/delta sync, trash restore and CSE token generation.
+- Google Drive push-channel registration for files or the changes feed plus explicit channel shutdown. Webhook registration refuses non-HTTPS callback addresses.
+- OpenAI Apps/Codex file parameter metadata through `_meta["openai/fileParams"]`, including provider-file materialization and cleanup.
+- Authenticated MCP resource output for exports. Large native downloads use Drive `files.download` long-running operations.
+- Optional Drive Activity and Drive Labels schema operations. Their extra OAuth scopes are aliases only and are deliberately not added to the default consent grant.
+- Cross-platform test execution so `npm test` works on Windows as well as Linux/macOS. The POSIX `0600` file-mode assertion is skipped only on Windows, where that mode is not representable.
+- `npm run start:hosted` for production-style team-mode hosting. It binds externally, consumes the platform `PORT`, derives the issuer from `REPLIT_DOMAINS` when present, and sets one trusted proxy hop only on Replit deployments. It refuses to start without a trustworthy public issuer.
 
-This project remains focused on deep Drive and editor workflows rather than attempting to expose every Google Workspace API.
+## Quick Start
 
-## Client compatibility
-
-Compatibility is determined by the transport and authentication flow a client supports.
-
-| Client type | Transport | Recommended mode |
-|---|---|---|
-| Claude Desktop | stdio | Local OAuth |
-| Other local MCP clients, including Gemini CLI | stdio | Local OAuth |
-| claude.ai custom connectors | Streamable HTTP | Team mode |
-| Other remote MCP clients | Streamable HTTP | Single identity behind access control, or team mode with OAuth 2.1 |
-
-See [Client configuration](docs/clients.md#client-configuration) for configuration examples and transport requirements.
-
-## Quick start
-
-### 1. Create Google OAuth credentials
-
-In a Google Cloud project:
-
-1. Enable the Drive, Docs, Sheets, Slides, and Calendar APIs.
-2. Configure the OAuth consent screen and add your Google account as a test user when the app is in testing.
-3. Create an OAuth client with application type **Desktop app**.
-4. Download the JSON file and save it as:
-
-```text
-~/.config/google-drive-mcp/gcp-oauth.keys.json
-```
-
-The [setup guide](docs/setup.md) has the complete Google Cloud walkthrough and alternative credential locations.
-
-### 2. Authenticate
+For local use, create a Google Cloud OAuth **Desktop application** client, save it as `gcp-oauth.keys.json` in the config directory, then run the server directly:
 
 ```bash
 npx -y @piotr-agier/google-drive-mcp auth
+npx -y @piotr-agier/google-drive-mcp
 ```
 
-Complete the Google consent flow in the browser. Tokens are stored by default at `~/.config/google-drive-mcp/tokens.json`.
+For this fork from source, clone the repository, switch to `nick/openai-drive-parity`, run `npm ci`, then `npm run build`. Use `npm run start:hosted` only for a public team-mode deployment with a Google OAuth **Web application** client, a trustworthy HTTPS issuer, and durable token storage. See [Setup](docs/setup.md), [Authentication](docs/authentication.md), and [Deployment](docs/deployment.md) for the full paths.
 
-### 3. Add the server to your MCP client
+## Hosted team mode
 
-For clients that use the common `mcpServers` configuration shape:
+Build first, then run `npm run start:hosted`. Hosted mode requires a Google OAuth **Web application** client:
 
-```json
-{
-  "mcpServers": {
-    "google-drive": {
-      "command": "npx",
-      "args": ["-y", "@piotr-agier/google-drive-mcp"]
-    }
-  }
-}
-```
+- `GOOGLE_DRIVE_MCP_CLIENT_ID`
+- `GOOGLE_DRIVE_MCP_CLIENT_SECRET`
 
-Restart the client after saving its configuration. Claude Desktop paths and HTTP examples are documented in [Client configuration](docs/clients.md#client-configuration).
+Set `MCP_TEAM_ISSUER_URL` explicitly on generic hosts. On Replit, the launcher can derive it from the first `REPLIT_DOMAINS` entry. Register `<issuer>/oauth/google/callback` as an authorized Google redirect URI.
 
-### 4. Make a first tool call
+The team store contains Google refresh tokens. Use a single process and persistent storage for `MCP_TEAM_STORE_PATH`. A memory store is suitable only for temporary testing because users must re-consent after a restart.
 
-Ask your client:
-
-```text
-Run authGetStatus and tell me which Google account is active.
-```
-
-Then try a read-only Drive request:
-
-```text
-Search my Google Drive for files modified in the last seven days.
-```
-
-If the identity is wrong or search returns no files, use the [troubleshooting guide](docs/troubleshooting.md).
-
-## What you can do
-
-### Organize Drive
-
-```text
-Find PDF files in /Reports, create an Archive folder there, and move files older
-than one year into it.
-```
-
-### Build a report
-
-```text
-Create a Google Sheet for monthly results, summarize it in a Google Doc, and
-create a short Google Slides presentation from the summary.
-```
-
-### Edit a document
-
-```text
-Find the "Project Plan" document, replace the old launch date, format the new
-date in bold, and add a comment describing the change.
-```
-
-### Prepare a meeting
-
-```text
-Create a Calendar event with a Google Meet link and attach the project brief
-from Drive.
-```
-
-<!--
-  Anchors for sections that lived in this README before the guides moved to docs/.
-  External deep links (directory listings, issue replies, blog posts) land on the
-  table below, which names the guide each section moved to. Do not remove.
--->
-<a id="features"></a><a id="example-usage"></a><a id="requirements"></a>
-<a id="google-cloud-setup"></a><a id="installation"></a><a id="docker-usage"></a>
-<a id="configuration"></a><a id="runtime-configuration-cli-args-or-env-vars"></a>
-<a id="usage-with-claude-desktop"></a><a id="streamable-http-transport"></a>
-<a id="team-mode-multi-user-http-deployments"></a><a id="available-tools"></a>
-<a id="external-authentication"></a><a id="multi-account-support"></a>
-<a id="authentication-flow"></a><a id="troubleshooting"></a><a id="development"></a>
-<a id="advanced-configuration"></a><a id="contributing"></a><a id="support"></a>
+A local authenticated deployment exposed through a secure MCP tunnel is also a first-class production option. It avoids copying Google refresh tokens to a third-party host and fits the server's single-process/session architecture well.
 
 ## Documentation
 
-Every section that used to live in this README is now in one of these guides.
+- [Tool reference](docs/tools.md)
+- [Drive compatibility notes](docs/openai-drive-parity.md)
+- [Setup](docs/setup.md)
+- [Client configuration](docs/clients.md)
+- [Authentication](docs/authentication.md)
+- [Deployment](docs/deployment.md)
+- [Configuration](docs/configuration.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-| Guide | Contents |
-|---|---|
-| [Setup](docs/setup.md) | Requirements, Google Cloud APIs, OAuth credentials, and installation |
-| [Client configuration](docs/clients.md) | Supported transports and client configuration |
-| [Authentication](docs/authentication.md) | Local OAuth, multi-account, service accounts, external tokens, and scopes |
-| [Configuration](docs/configuration.md) | CLI flags, environment variables, defaults, and precedence |
-| [Deployment](docs/deployment.md) | Docker, Streamable HTTP, team mode, and reverse-proxy security |
-| [Tool reference](docs/tools.md) | All Drive, Docs, Sheets, Slides, Calendar, and account tools |
-| [Troubleshooting](docs/troubleshooting.md) | Authentication, API, identity, Docker, and rate-limit problems |
-| [Development](docs/development.md) | Repository structure, build commands, tests, and contributions |
+## Optional scopes
 
-## Security
+Ordinary OpenAI parity, Google-MCP compatibility, access proposals, approvals, changes, comments, permissions, revisions, watches and most Drive-v3 completion routes use the existing Drive scopes.
 
-- Never commit OAuth credentials, service-account keys, access tokens, refresh tokens, or `tokens.json`.
-- Use the narrowest OAuth scopes that support the tools you need.
-- Keep the default HTTP bind address on `127.0.0.1` unless the server is protected by TLS and access control.
-- Use [team mode](docs/deployment.md#team-mode-multi-user-http-deployments) for shared deployments so every request is authenticated as its caller.
-- Treat `team-store.json` as a secret because it contains members' Google refresh tokens.
+Extra aliases are available through `GOOGLE_DRIVE_MCP_SCOPES` when needed:
 
-See [Authentication](docs/authentication.md) and [Deployment](docs/deployment.md) for the complete security and identity model.
+- `drive.apps.readonly` for listing installed/authorized Drive apps
+- `drive.activity.readonly` or `drive.activity`
+- `drive.labels.readonly` or `drive.labels`
+- `drive.admin.labels.readonly` or `drive.admin.labels`
 
-## Development and support
+These are not added to `DEFAULT_SCOPES`.
 
-See the [development guide](docs/development.md) to build and test the project.
+## Google first-party fallback
 
-- Report defects and request features in [GitHub Issues](https://github.com/piotr-agier/google-drive-mcp/issues).
-- Review released changes in the [changelog](CHANGELOG.md).
-- Contributions are welcome through pull requests.
+Google’s remote Drive MCP is a Developer Preview and requires both `drive.googleapis.com` and `drivemcp.googleapis.com` to be enabled in the OAuth project. The passthrough is **off by default**. Google-compatible names still work through local handlers without it.
+
+To enable provider-accurate fallback after configuring the Google Cloud project, set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true`. You can override the endpoint with `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL`. The timeout defaults to 10 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS`.
+
+## Safety notes
+
+`delete_file`, `empty_trash`, Shared Drive deletion, access-proposal resolution, approval actions, permission changes, revision deletion, label-schema mutations, CSE operations and webhook registration can be destructive or externally visible. `empty_trash` refuses to run unless `confirm=true`. Watch registration requires an explicit HTTPS callback address; Nick Drive never invents or auto-publishes one.
+
+The current OpenAI, Google Drive MCP, and Drive-v3 completion contracts are frozen in `src/parity/openai-drive-contract.ts` and checked in tests so future upstream merges cannot silently remove a route.
 
 ## License
 
-[MIT](LICENSE)
-
-## Acknowledgments
-
-- Built on the [Model Context Protocol](https://modelcontextprotocol.io).
-- Uses the [Google APIs Node.js Client](https://github.com/googleapis/google-api-nodejs-client).
+MIT, following the upstream project license.

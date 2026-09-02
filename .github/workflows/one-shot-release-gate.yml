@@ -1,0 +1,92 @@
+name: one-shot-release-gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - nick/openai-drive-parity
+    paths:
+      - .github/workflows/one-shot-release-gate.yml
+      - package.json
+      - package-lock.json
+      - scripts/build.js
+      - scripts/start-hosted.js
+      - src/**
+      - docs/openai-drive-parity.md
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: nick/openai-drive-parity
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Full tests
+        run: npm test
+      - name: Pack and smoke shipped package
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'smoke: packing package'
+          PACK_FILE="$(npm pack --silent | tail -n 1)"
+          test -n "$PACK_FILE"
+          test -f "$PACK_FILE"
+          echo "smoke: packed $PACK_FILE"
+
+          PACKAGE_CONTENTS="$(tar -tf "$PACK_FILE")"
+          grep -Fxq 'package/dist/index.js' <<<"$PACKAGE_CONTENTS"
+          grep -Fxq 'package/dist/hosted-env.js' <<<"$PACKAGE_CONTENTS"
+          grep -Fxq 'package/scripts/start-hosted.js' <<<"$PACKAGE_CONTENTS"
+          grep -Fxq 'package/docs/openai-drive-parity.md' <<<"$PACKAGE_CONTENTS"
+          echo 'smoke: required files present in tarball'
+
+          TMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          cd "$TMP_DIR"
+          npm init -y >/dev/null 2>&1
+          echo 'smoke: installing tarball into clean project'
+          npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACK_FILE"
+          echo 'smoke: tarball install complete'
+
+          PKG_DIR='node_modules/@piotr-agier/google-drive-mcp'
+          test -f "$PKG_DIR/dist/index.js"
+          test -f "$PKG_DIR/dist/hosted-env.js"
+          test -f "$PKG_DIR/scripts/start-hosted.js"
+          echo 'smoke: installed package files present'
+
+          node "$PKG_DIR/dist/index.js" --version | grep -F '2.6.0'
+          echo 'smoke: installed CLI version works'
+
+          set +e
+          MCP_TEAM_STORE=memory \
+          GOOGLE_DRIVE_MCP_CLIENT_ID='ci.apps.googleusercontent.com' \
+          GOOGLE_DRIVE_MCP_CLIENT_SECRET='ci-secret' \
+          MCP_TEAM_ISSUER_URL='http://127.0.0.1:18941' \
+          MCP_HTTP_HOST='127.0.0.1' \
+          MCP_HTTP_PORT='18941' \
+          timeout 10s node "$PKG_DIR/scripts/start-hosted.js" > hosted-smoke.log 2>&1
+          RC=$?
+          set -e
+          cat hosted-smoke.log
+          if [ "$RC" -ne 124 ] && [ "$RC" -ne 143 ]; then
+            echo "hosted launcher exited unexpectedly with $RC"
+            exit "$RC"
+          fi
+          grep -F 'Team mode enabled' hosted-smoke.log
+          grep -F 'oauth/google/callback' hosted-smoke.log
+          echo 'smoke: hosted launcher remained healthy until timeout'
