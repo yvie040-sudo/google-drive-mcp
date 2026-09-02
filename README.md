@@ -19,6 +19,17 @@ This fork exposes **195 MCP tools**. It preserves the full upstream toolset, add
 - Cross-platform test execution so `npm test` works on Windows as well as Linux/macOS. The POSIX `0600` file-mode assertion is skipped only on Windows, where that mode is not representable.
 - `npm run start:hosted` for production-style team-mode hosting. It binds externally, consumes the platform `PORT`, derives the issuer from `REPLIT_DOMAINS` when present, and sets one trusted proxy hop only on Replit deployments. It refuses to start without a trustworthy public issuer.
 
+## Quick Start
+
+For local use, create a Google Cloud OAuth **Desktop application** client, save it as `gcp-oauth.keys.json` in the config directory, then run the server directly:
+
+```bash
+npx -y @piotr-agier/google-drive-mcp auth
+npx -y @piotr-agier/google-drive-mcp
+```
+
+For this fork from source, clone the repository, switch to `nick/openai-drive-parity`, run `npm ci`, then `npm run build`. Use `npm run start:hosted` only for a public team-mode deployment with a Google OAuth **Web application** client, a trustworthy HTTPS issuer, and durable token storage. See [Setup](docs/setup.md), [Authentication](docs/authentication.md), and [Deployment](docs/deployment.md) for the full paths.
+
 ## Hosted team mode
 
 Build first, then run `npm run start:hosted`. Hosted mode requires a Google OAuth **Web application** client:
