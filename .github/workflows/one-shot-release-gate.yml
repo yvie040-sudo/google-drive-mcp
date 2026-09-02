@@ -1,11 +1,18 @@
 name: one-shot-release-gate
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - nick/openai-drive-parity
     paths:
       - .github/workflows/one-shot-release-gate.yml
+      - package.json
+      - package-lock.json
+      - scripts/build.js
+      - scripts/start-hosted.js
+      - src/**
+      - docs/openai-drive-parity.md
 
 permissions:
   contents: read
@@ -58,6 +65,7 @@ jobs:
 
           PKG_DIR='node_modules/@piotr-agier/google-drive-mcp'
           test -f "$PKG_DIR/dist/index.js"
+          test -f "$PKG_DIR/dist/hosted-env.js"
           test -f "$PKG_DIR/scripts/start-hosted.js"
           echo 'smoke: installed package files present'
 
