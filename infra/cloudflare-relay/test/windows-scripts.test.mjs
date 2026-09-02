@@ -36,3 +36,31 @@ test("Cloudflare provisioning uses Worker secret stdin and stores only a DPAPI b
   assert.match(deploy, /relay_key_dpapi/i);
   assert.doesNotMatch(deploy, /Write-(?:Host|Output)[^\r\n]*\$relayKey/i);
 });
+test("local host install fails closed when its target port already has a listener", async () => {
+  const install = await text("install-local-host.ps1");
+  assert.match(install, /Get-NetTCPConnection/i);
+  assert.match(install, /State\s+Listen/i);
+  assert.match(install, /already has a listener/i);
+});
+
+test("local host removal discovers orphaned Node runtimes from the registered RepoPath", async () => {
+  const remove = await text("remove-local-host.ps1");
+  assert.match(remove, /-RepoPath/i);
+  assert.match(remove, /start-hosted\.js/i);
+  assert.match(remove, /dist[\\/]index\.js/i);
+  assert.match(remove, /Get-CimInstance\s+Win32_Process/i);
+});
+
+test("relay install refuses an already-running managed bridge", async () => {
+  const install = await text("install-relay-client.ps1");
+  assert.match(install, /Get-CimInstance\s+Win32_Process/i);
+  assert.match(install, /bridge-runner\.mjs/i);
+  assert.match(install, /already running/i);
+});
+
+test("relay removal discovers orphaned bridge runners from the registered RepoPath", async () => {
+  const remove = await text("remove-relay-client.ps1");
+  assert.match(remove, /-RepoPath/i);
+  assert.match(remove, /bridge-runner\.mjs/i);
+  assert.match(remove, /Get-CimInstance\s+Win32_Process/i);
+});

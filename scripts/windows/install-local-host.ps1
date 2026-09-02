@@ -57,6 +57,11 @@ $npmCommand = Get-Command npm.cmd -ErrorAction Stop
 $gitCommand = Get-Command git.exe -ErrorAction Stop
 $powerShellCommand = Get-Command powershell.exe -ErrorAction Stop
 
+$existingListener = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+if ($existingListener.Count -gt 0) {
+  $owners = ($existingListener.OwningProcess | Sort-Object -Unique) -join ', '
+  throw "Port $Port already has a listener (PID(s): $owners). Remove/stop the existing Nick Drive MCP runtime before installing this task."
+}
 $nodeVersionText = (& $nodeCommand.Source --version).Trim()
 $nodeMajor = [int](($nodeVersionText -replace '^v', '').Split('.')[0])
 if ($nodeMajor -lt 22) {

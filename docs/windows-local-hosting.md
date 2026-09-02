@@ -202,6 +202,34 @@ This file contains Google refresh tokens and must be treated as a secret databas
 
 If the team store is lost, the Google account must authorize again. Losing in-flight authorization state during a restart only requires retrying that login flow.
 
+### Supported service stop/restart
+
+Do not use raw `Stop-ScheduledTask` as the normal stop/restart mechanism. Windows Task Scheduler can terminate the PowerShell task host while leaving its child Node process alive. A later start can then appear healthy by probing the stale listener instead of the newly started task.
+
+Use the provided removal scripts for bounded process-tree ownership cleanup. They derive the exact repository paths from the registered task arguments and terminate only matching managed processes, including a stale orphan from that same deployment. Protected credentials and the team store remain preserved by default.
+
+For the MCP runtime:
+
+```powershell
+.\scripts\windows\remove-local-host.ps1 -Confirm:$false
+.\scripts\windows\install-local-host.ps1 `
+  -RepoPath 'C:\path\to\google-drive-mcp' `
+  -IssuerUrl 'https://your-fixed-hostname.example' `
+  -TrustProxyHops 1 `
+  -SkipBuild `
+  -StartNow
+```
+
+For the outbound relay:
+
+```powershell
+.\scripts\windows\remove-relay-client.ps1 -Confirm:$false
+.\scripts\windows\install-relay-client.ps1 `
+  -RepoPath 'C:\path\to\google-drive-mcp' `
+  -StartNow
+```
+
+Both installers now fail closed if an existing managed listener/bridge is already present. This prevents a stale process from making a replacement installation look healthy.
 ## 6. Removal
 
 Removing the persistent task does not delete credentials or OAuth grants by default:

@@ -26,6 +26,19 @@ if (-not (Test-Path -LiteralPath $runScript -PathType Leaf)) { throw "Relay runt
 if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) { throw "Relay runner not found: $runner" }
 if (-not (Test-Path -LiteralPath $SecretPath -PathType Leaf)) { throw "Protected relay credentials not found: $SecretPath" }
 
+$comparison = [System.StringComparison]::OrdinalIgnoreCase
+$existingBridge = @(
+  Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object {
+      $commandLine = [string]$_.CommandLine
+      -not [string]::IsNullOrWhiteSpace($commandLine) -and
+      $commandLine.IndexOf($runner, $comparison) -ge 0
+    }
+)
+if ($existingBridge.Count -gt 0) {
+  $pids = ($existingBridge.ProcessId | Sort-Object) -join ', '
+  throw "Managed bridge runner is already running (PID(s): $pids). Remove/stop the existing relay task before installing this task."
+}
 $config = Get-Content -LiteralPath $SecretPath -Raw | ConvertFrom-Json
 if ([int]$config.version -ne 1 -or [string]$config.credential_type -ne 'cloudflare_drive_relay') {
   throw 'Unsupported protected relay credential file format.'

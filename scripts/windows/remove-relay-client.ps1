@@ -2,6 +2,8 @@
 param(
   [string]$TaskName = 'Nick Drive MCP Relay',
 
+  [string]$RepoPath,
+
   [string]$SecretPath = (Join-Path $env:LOCALAPPDATA 'NickDriveMcp\relay-secrets.json'),
 
   [switch]$RemoveProtectedRelaySecret
@@ -9,32 +11,48 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$comparison = [System.StringComparison]::OrdinalIgnoreCase
 
-function Find-TaskHostProcess {
+function Get-TaskRelayConfig {
   param([Parameter(Mandatory = $true)]$Task)
   $action = @($Task.Actions) | Select-Object -First 1
   if (-not $action) { return $null }
   $arguments = [string]$action.Arguments
   $fileMatch = [regex]::Match($arguments, '(?i)(?:^|\s)-File\s+"([^"]+)"')
   $secretMatch = [regex]::Match($arguments, '(?i)(?:^|\s)-SecretPath\s+"([^"]+)"')
-  if (-not $fileMatch.Success -or -not $secretMatch.Success) { return $null }
-  $runScript = $fileMatch.Groups[1].Value
-  $taskSecretPath = $secretMatch.Groups[1].Value
-  $comparison = [System.StringComparison]::OrdinalIgnoreCase
-  $matches = @(
+  $repoMatch = [regex]::Match($arguments, '(?i)(?:^|\s)-RepoPath\s+"([^"]+)"')
+  if (-not $fileMatch.Success -or -not $secretMatch.Success -or -not $repoMatch.Success) { return $null }
+  return [pscustomobject]@{
+    RunScript = $fileMatch.Groups[1].Value
+    SecretPath = $secretMatch.Groups[1].Value
+    RepoPath = $repoMatch.Groups[1].Value
+  }
+}
+
+function Find-TaskHostProcesses {
+  param([Parameter(Mandatory = $true)]$Config)
+  return @(
     Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
       Where-Object {
         $commandLine = [string]$_.CommandLine
         -not [string]::IsNullOrWhiteSpace($commandLine) -and
-        $commandLine.IndexOf($runScript, $comparison) -ge 0 -and
-        $commandLine.IndexOf($taskSecretPath, $comparison) -ge 0
+        $commandLine.IndexOf($Config.RunScript, $comparison) -ge 0 -and
+        $commandLine.IndexOf($Config.SecretPath, $comparison) -ge 0
       }
   )
-  if ($matches.Count -gt 1) {
-    throw "Refusing to terminate an ambiguous relay task process tree. Matching host PIDs: $(($matches.ProcessId | Sort-Object) -join ', ')"
-  }
-  if ($matches.Count -eq 1) { return $matches[0] }
-  return $null
+}
+
+function Get-ManagedBridgeProcesses {
+  param([Parameter(Mandatory = $true)][string]$ManagedRepo)
+  $runner = Join-Path $ManagedRepo 'infra\cloudflare-relay\src\bridge-runner.mjs'
+  return @(
+    Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+      Where-Object {
+        $commandLine = [string]$_.CommandLine
+        -not [string]::IsNullOrWhiteSpace($commandLine) -and
+        $commandLine.IndexOf($runner, $comparison) -ge 0
+      }
+  )
 }
 
 function Stop-ProcessTree {
@@ -42,24 +60,60 @@ function Stop-ProcessTree {
   $taskkill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
   & $taskkill /PID $ProcessId /T /F | Out-Null
   $taskkillExit = $LASTEXITCODE
-  for ($attempt = 0; $attempt -lt 20; $attempt++) {
+  for ($attempt = 0; $attempt -lt 30; $attempt++) {
     if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) { return }
     Start-Sleep -Milliseconds 100
   }
-  if ($taskkillExit -ne 0) { throw "taskkill failed for relay task host PID $ProcessId with exit code $taskkillExit." }
-  throw "Relay task host PID $ProcessId remained alive after process-tree termination."
+  if ($taskkillExit -ne 0) { throw "taskkill failed for relay PID $ProcessId with exit code $taskkillExit." }
+  throw "Relay PID $ProcessId remained alive after process-tree termination."
+}
+
+function Stop-ManagedBridgeProcesses {
+  param([Parameter(Mandatory = $true)][string]$ManagedRepo)
+  for ($pass = 0; $pass -lt 3; $pass++) {
+    $matches = @(Get-ManagedBridgeProcesses -ManagedRepo $ManagedRepo)
+    if ($matches.Count -eq 0) { return }
+    $ids = @{}
+    foreach ($process in $matches) { $ids[[int]$process.ProcessId] = $true }
+    $roots = @($matches | Where-Object { -not $ids.ContainsKey([int]$_.ParentProcessId) })
+    foreach ($root in $roots) { Stop-ProcessTree -ProcessId ([int]$root.ProcessId) }
+  }
+  $remaining = @(Get-ManagedBridgeProcesses -ManagedRepo $ManagedRepo)
+  if ($remaining.Count -gt 0) {
+    throw "Managed relay bridge remained after cleanup. PID(s): $(($remaining.ProcessId | Sort-Object) -join ', ')"
+  }
 }
 
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+$config = if ($task) { Get-TaskRelayConfig -Task $task } else { $null }
+$effectiveRepo = $null
+if (-not [string]::IsNullOrWhiteSpace($RepoPath)) {
+  $effectiveRepo = (Resolve-Path -LiteralPath $RepoPath).Path
+}
+if ($config -and -not [string]::IsNullOrWhiteSpace([string]$config.RepoPath)) {
+  $taskRepo = (Resolve-Path -LiteralPath ([string]$config.RepoPath)).Path
+  if ($effectiveRepo -and -not $effectiveRepo.Equals($taskRepo, $comparison)) {
+    throw "Explicit RepoPath does not match the registered relay task RepoPath. Explicit=$effectiveRepo Registered=$taskRepo"
+  }
+  $effectiveRepo = $taskRepo
+}
+
 if ($task) {
-  if ($PSCmdlet.ShouldProcess($TaskName, 'Stop exact process tree and unregister relay scheduled task')) {
-    $hostProcess = Find-TaskHostProcess -Task $task
-    if ($hostProcess) { Stop-ProcessTree -ProcessId ([int]$hostProcess.ProcessId) }
+  if ($PSCmdlet.ShouldProcess($TaskName, 'Stop exact relay process trees and unregister scheduled task')) {
+    if ($config) {
+      $hosts = @(Find-TaskHostProcesses -Config $config)
+      foreach ($hostProcess in $hosts) { Stop-ProcessTree -ProcessId ([int]$hostProcess.ProcessId) }
+    }
     Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($effectiveRepo) { Stop-ManagedBridgeProcesses -ManagedRepo $effectiveRepo }
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
   }
+} elseif ($effectiveRepo) {
+  if ($PSCmdlet.ShouldProcess($effectiveRepo, 'Stop exact orphaned bridge-runner.mjs processes')) {
+    Stop-ManagedBridgeProcesses -ManagedRepo $effectiveRepo
+  }
 } else {
-  Write-Output "Scheduled task not present: $TaskName"
+  Write-Output "Scheduled task not present and no RepoPath supplied: $TaskName"
 }
 
 if ($RemoveProtectedRelaySecret -and (Test-Path -LiteralPath $SecretPath -PathType Leaf)) {
