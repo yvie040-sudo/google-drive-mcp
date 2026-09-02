@@ -23,6 +23,7 @@ The task:
 
 - runs under the Windows user that owns the DPAPI-protected Google OAuth client secret;
 - uses S4U so a plaintext Windows password is not embedded in the task;
+- runs with normal/limited user privileges because the MCP does not require administrator rights;
 - starts at boot and at logon;
 - restarts after failure;
 - runs the existing `scripts/start-hosted.js` launcher;
@@ -61,7 +62,7 @@ The script stores the client ID plus a DPAPI-protected client secret at:
 %LOCALAPPDATA%\NickDriveMcp\hosted-secrets.json
 ```
 
-The plaintext client secret is never written by the script to stdout.
+Before deleting the downloaded source, the importer verifies that the DPAPI blob decrypts back to the same client secret. The plaintext client secret is never written by the script to stdout.
 
 ## 2. Install the local runtime
 
@@ -71,7 +72,7 @@ Check out a commit that contains production baseline:
 49c06c4c36e1c0792c2af61b5bc435fe00935403
 ```
 
-Then run from an elevated PowerShell session:
+Then run PowerShell as the Windows user that will own the MCP task. Elevation is not required by the MCP itself; local policy may still require it to register an `AtStartup` trigger.
 
 ```powershell
 .\scripts\windows\install-local-host.ps1 `
@@ -87,7 +88,7 @@ The installer:
 3. refuses a dirty working tree unless `-AllowDirty` is explicit;
 4. runs `npm ci` and `npm run build` unless `-SkipBuild` is explicit;
 5. restricts the `%LOCALAPPDATA%\NickDriveMcp` runtime directory to the current Windows identity;
-6. installs the `Nick Drive MCP` Scheduled Task;
+6. installs the `Nick Drive MCP` Scheduled Task with limited privileges;
 7. optionally starts it immediately;
 8. when `-StartNow` is used, requires the local `/mcp` endpoint to answer unauthenticated requests with HTTP 401 before reporting success.
 
@@ -99,7 +100,9 @@ The runtime wrapper sets these values only in the MCP process environment:
 - `MCP_TEAM_ISSUER_URL=<fixed HTTPS issuer>`
 - `MCP_TEAM_STORE=file`
 - `MCP_TEAM_STORE_PATH=%LOCALAPPDATA%\NickDriveMcp\team-store.json`
-- `MCP_TRUST_PROXY=1`
+- `MCP_TRUST_PROXY=<verified ingress hop count>`
+
+`-TrustProxyHops` defaults to `1`, which is appropriate only when the real ingress has exactly one trusted proxy hop. If an existing Worker relay or other gateway adds another proxy layer, determine the real hop count before installation and pass it explicitly.
 
 The Google client secret is decrypted from DPAPI only inside the runtime process and is not passed on the Scheduled Task command line.
 
@@ -186,9 +189,11 @@ Do not call this deployment complete until all of these are proven on the real P
 
 - Windows branch/scripts CI passes;
 - local Scheduled Task starts after a restart;
+- the task is still running with limited user privileges;
 - local `/mcp` returns 401 without bearer auth;
 - public OAuth metadata resolves over HTTPS;
 - public `/mcp` reaches the local process;
+- the configured trusted-proxy hop count matches the actual ingress chain;
 - Google accepts the exact callback URI;
 - `nickzijlmans1@gmail.com` completes consent;
 - ChatGPT completes MCP OAuth;
