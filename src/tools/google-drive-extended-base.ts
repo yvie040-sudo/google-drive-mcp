@@ -76,7 +76,8 @@ export async function handleTool(toolName: string, args: Record<string, any>, ct
         const action = String(args.action || '');
         if (action === 'start') {
           const capabilities = await ctx.getDrive().files.get({ fileId, fields: 'capabilities(canStartApproval)', supportsAllDrives: true });
-          if (capabilities.data.capabilities?.canStartApproval === false) return errorResponse('Google Drive reports capabilities.canStartApproval=false for this file.');
+          const canStartApproval = (capabilities.data.capabilities as unknown as { canStartApproval?: boolean } | undefined)?.canStartApproval;
+          if (canStartApproval === false) return errorResponse('Google Drive reports capabilities.canStartApproval=false for this file.');
           const body = {
             reviewerEmails: args.reviewer_emails ?? [],
             ...(args.due_time ? { dueTime: args.due_time } : {}),
