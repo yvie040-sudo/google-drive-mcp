@@ -19,10 +19,12 @@ gcp-oauth.keys.json
 !gcp-oauth.keys.example.json
 client_secret.json
 client_secret_*
+hosted-secrets*.json
 
 # Token files - NEVER commit these
 google-tokens.json
 .gcp-saved-tokens.json
+team-store*.json
 .config/
 ~/.config/google-drive-mcp/
 
@@ -51,3 +53,6 @@ coverage/
 *.temp
 .cache/
 .tmp-test/
+
+# Cloudflare local state
+.wrangler/

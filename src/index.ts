@@ -40,7 +40,7 @@ import {
   ALL_DRIVES_LIST_PARAMS,
   PARENT_SCOPED_LIST_PARAMS,
 } from './utils.js';
-import type { AccountOps, AddAccountResult, ToolContext, ToolResult } from './types.js';
+import type { AccountOps, AddAccountResult, ToolContext, ToolDefinition, ToolResult } from './types.js';
 import { errorResponse } from './types.js';
 import { loadRuntimeConfig, parseBoolEnv, type RuntimeConfig } from './utils/cliArgs.js';
 import { GOOGLE_CALLBACK_PATH, isLoopbackHost, loadTeamConfig } from './auth/team/config.js';
@@ -444,6 +444,25 @@ async function checkFileExists(name: string, parentFolderId: string = 'root', dr
 // -----------------------------------------------------------------------------
 const domainModules = [driveTools, docsTools, sheetsTools, slidesTools, calendarTools];
 
+/**
+ * Publish standard MCP safety hints from the same operation metadata used by
+ * account routing. Explicit per-tool annotations remain authoritative.
+ */
+function withSafetyAnnotations(def: ToolDefinition): ToolDefinition {
+  const meta = TOOL_META[def.name] ?? FALLBACK_META;
+  const readOnly = meta.opKind === 'read';
+  return {
+    ...def,
+    annotations: {
+      readOnlyHint: readOnly,
+      destructiveHint: !readOnly,
+      idempotentHint: readOnly,
+      openWorldHint: true,
+      ...(def.annotations ?? {}),
+    },
+  };
+}
+
 // -----------------------------------------------------------------------------
 // Per-tool `account` parameter plumbing
 // -----------------------------------------------------------------------------
@@ -751,7 +770,7 @@ function createMcpServer(config: RuntimeConfig = runtimeConfig): Server {
   }
 
   s.setRequestHandler(ListToolsRequestSchema, async () => {
-    const definitions = domainModules.flatMap((m) => m.toolDefinitions);
+    const definitions = domainModules.flatMap((m) => m.toolDefinitions).map(withSafetyAnnotations);
     if (teamRuntime) {
       // Team mode: identity comes from the bearer, so the `account` parameter
       // is never injected and local account management is not offered. Local

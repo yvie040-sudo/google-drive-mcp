@@ -1,0 +1,159 @@
+[CmdletBinding()]
+param(
+  [Parameter(Mandatory = $true)]
+  [string]$RepoPath,
+
+  [int]$Port = 3100,
+
+  [string]$TaskName = 'Nick Drive MCP Relay',
+
+  [string]$SecretPath = (Join-Path $env:LOCALAPPDATA 'NickDriveMcp\relay-secrets.json'),
+
+  [string]$RuntimePath = (Join-Path $env:LOCALAPPDATA 'NickDriveMcp\relay-runtime'),
+
+  [switch]$SkipInstall,
+
+  [switch]$StartNow
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+if ($Port -lt 1 -or $Port -gt 65535) { throw "Invalid port: $Port" }
+$comparison = [System.StringComparison]::OrdinalIgnoreCase
+$repo = (Resolve-Path -LiteralPath $RepoPath).Path
+$runScript = Join-Path $repo 'scripts\windows\run-relay-client.ps1'
+$relayDir = Join-Path $repo 'infra\cloudflare-relay'
+$sourceRunner = Join-Path $relayDir 'src\bridge-runner.mjs'
+$runtime = [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($RuntimePath))
+$runtimeRunner = Join-Path $runtime 'src\bridge-runner.mjs'
+$repoPrefix = $repo.TrimEnd('\') + '\'
+if ($runtime.Equals($repo, $comparison) -or $runtime.StartsWith($repoPrefix, $comparison)) {
+  throw "RuntimePath must be outside the repository so production installs cannot mutate developer dependencies: $runtime"
+}
+if (-not (Test-Path -LiteralPath $runScript -PathType Leaf)) { throw "Relay runtime wrapper not found: $runScript" }
+if (-not (Test-Path -LiteralPath $sourceRunner -PathType Leaf)) { throw "Relay runner not found: $sourceRunner" }
+if (-not (Test-Path -LiteralPath $SecretPath -PathType Leaf)) { throw "Protected relay credentials not found: $SecretPath" }
+
+$existingBridge = @(
+  Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object {
+      $commandLine = [string]$_.CommandLine
+      -not [string]::IsNullOrWhiteSpace($commandLine) -and
+      ($commandLine.IndexOf($sourceRunner, $comparison) -ge 0 -or $commandLine.IndexOf($runtimeRunner, $comparison) -ge 0)
+    }
+)
+if ($existingBridge.Count -gt 0) {
+  $pids = ($existingBridge.ProcessId | Sort-Object) -join ', '
+  throw "Managed bridge runner is already running (PID(s): $pids). Remove/stop the existing relay task before installing this task."
+}
+$config = Get-Content -LiteralPath $SecretPath -Raw | ConvertFrom-Json
+if ([int]$config.version -ne 1 -or [string]$config.credential_type -ne 'cloudflare_drive_relay') {
+  throw 'Unsupported protected relay credential file format.'
+}
+$relayUrl = [Uri]([string]$config.relay_url)
+if ($relayUrl.Scheme -ne 'wss' -or $relayUrl.AbsolutePath -ne '/__relay/ws') { throw 'Protected relay URL is invalid.' }
+$healthUrl = "https://$($relayUrl.Authority)/__relay/health"
+
+$nodeCommand = Get-Command node.exe -ErrorAction Stop
+$npmCommand = Get-Command npm.cmd -ErrorAction Stop
+$powerShellCommand = Get-Command powershell.exe -ErrorAction Stop
+if (-not $SkipInstall) {
+  $runtimeParent = Split-Path -Parent $runtime
+  New-Item -ItemType Directory -Path $runtimeParent -Force | Out-Null
+  $staging = "$runtime.staging-$PID-$([Guid]::NewGuid().ToString('N'))"
+  $backup = "$runtime.backup-$PID-$([Guid]::NewGuid().ToString('N'))"
+  try {
+    New-Item -ItemType Directory -Path $staging -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $relayDir 'package.json') -Destination $staging
+    Copy-Item -LiteralPath (Join-Path $relayDir 'package-lock.json') -Destination $staging
+    Copy-Item -LiteralPath (Join-Path $relayDir 'src') -Destination $staging -Recurse
+    & $npmCommand.Source ci --prefix $staging --omit=dev
+    if ($LASTEXITCODE -ne 0) { throw "Relay runtime npm ci failed with exit code $LASTEXITCODE." }
+    $stagedRunner = Join-Path $staging 'src\bridge-runner.mjs'
+    $stagedWs = Join-Path $staging 'node_modules\ws\package.json'
+    if (-not (Test-Path -LiteralPath $stagedRunner -PathType Leaf) -or -not (Test-Path -LiteralPath $stagedWs -PathType Leaf)) {
+      throw 'Staged relay runtime is incomplete after npm ci.'
+    }
+    if (Test-Path -LiteralPath $runtime) { Move-Item -LiteralPath $runtime -Destination $backup }
+    try {
+      Move-Item -LiteralPath $staging -Destination $runtime
+    } catch {
+      if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $runtime)) {
+        Move-Item -LiteralPath $backup -Destination $runtime
+      }
+      throw
+    }
+    if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
+  } finally {
+    if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
+  }
+} else {
+  if (-not (Test-Path -LiteralPath $runtimeRunner -PathType Leaf)) { throw "Relay runtime not staged: $runtimeRunner" }
+  if (-not (Test-Path -LiteralPath (Join-Path $runtime 'node_modules\ws\package.json') -PathType Leaf)) { throw "Relay runtime dependency missing: ws" }
+}
+
+function Quote-TaskArgument([string]$Value) {
+  return '"' + $Value.Replace('"', '""') + '"'
+}
+
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+$taskArguments = @(
+  '-NoLogo',
+  '-NoProfile',
+  '-NonInteractive',
+  '-ExecutionPolicy', 'Bypass',
+  '-File', (Quote-TaskArgument $runScript),
+  '-RepoPath', (Quote-TaskArgument $repo),
+  '-RuntimePath', (Quote-TaskArgument $runtime),
+  '-NodePath', (Quote-TaskArgument $nodeCommand.Source),
+  '-Port', [string]$Port,
+  '-SecretPath', (Quote-TaskArgument $SecretPath)
+) -join ' '
+
+$action = New-ScheduledTaskAction -Execute $powerShellCommand.Source -Argument $taskArguments -WorkingDirectory $repo
+$startupTrigger = New-ScheduledTaskTrigger -AtStartup
+$logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
+$principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType S4U -RunLevel Limited
+$settings = New-ScheduledTaskSettingsSet `
+  -StartWhenAvailable `
+  -RestartCount 999 `
+  -RestartInterval (New-TimeSpan -Minutes 1) `
+  -ExecutionTimeLimit ([TimeSpan]::Zero) `
+  -MultipleInstances IgnoreNew `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries
+$task = New-ScheduledTask `
+  -Action $action `
+  -Trigger @($startupTrigger, $logonTrigger) `
+  -Principal $principal `
+  -Settings $settings `
+  -Description 'Persistent outbound Cloudflare Worker relay for Nick Drive MCP. Runtime dependencies are staged outside the repository and the bridge key remains DPAPI-protected outside task arguments.'
+Register-ScheduledTask -TaskName $TaskName -InputObject $task -Force | Out-Null
+
+if ($StartNow) {
+  Start-ScheduledTask -TaskName $TaskName
+  $ready = $false
+  for ($attempt = 0; $attempt -lt 30; $attempt++) {
+    Start-Sleep -Seconds 1
+    try {
+      $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+      if ([int]$response.StatusCode -eq 200) {
+        $payload = $response.Content | ConvertFrom-Json
+        if ($payload.bridge_connected -eq $true) {
+          $ready = $true
+          break
+        }
+      }
+    } catch {}
+  }
+  if (-not $ready) {
+    $info = Get-ScheduledTaskInfo -TaskName $TaskName
+    throw "Relay task was registered but public health never reported bridge_connected=true. LastTaskResult=$($info.LastTaskResult)."
+  }
+}
+
+Write-Output "Scheduled task installed: $TaskName"
+Write-Output "Relay runtime: $runtime"
+Write-Output "Relay health: $healthUrl"
+Write-Output "Local origin: http://127.0.0.1:$Port"
