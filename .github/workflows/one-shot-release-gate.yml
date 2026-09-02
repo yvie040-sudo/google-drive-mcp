@@ -38,10 +38,11 @@ jobs:
           PACK_FILE="$(npm pack --silent | tail -n 1)"
           test -n "$PACK_FILE"
           test -f "$PACK_FILE"
-          tar -tf "$PACK_FILE" | grep -qx 'package/dist/index.js'
-          tar -tf "$PACK_FILE" | grep -qx 'package/dist/hosted-env.js'
-          tar -tf "$PACK_FILE" | grep -qx 'package/scripts/start-hosted.js'
-          tar -tf "$PACK_FILE" | grep -qx 'package/docs/openai-drive-parity.md'
+          PACKAGE_CONTENTS="$(tar -tf "$PACK_FILE")"
+          grep -Fxq 'package/dist/index.js' <<<"$PACKAGE_CONTENTS"
+          grep -Fxq 'package/dist/hosted-env.js' <<<"$PACKAGE_CONTENTS"
+          grep -Fxq 'package/scripts/start-hosted.js' <<<"$PACKAGE_CONTENTS"
+          grep -Fxq 'package/docs/openai-drive-parity.md' <<<"$PACKAGE_CONTENTS"
 
           TMP_DIR="$(mktemp -d)"
           trap 'rm -rf "$TMP_DIR"' EXIT
