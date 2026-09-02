@@ -28,7 +28,7 @@ npx -y @piotr-agier/google-drive-mcp auth
 npx -y @piotr-agier/google-drive-mcp
 ```
 
-For this fork from source, clone the repository, switch to `nick/openai-drive-parity`, run `npm ci`, then `npm run build`. Use `npm run start:hosted` only for a public team-mode deployment with a Google OAuth **Web application** client, a trustworthy HTTPS issuer, and durable token storage. See [Setup](docs/setup.md), [Authentication](docs/authentication.md), and [Deployment](docs/deployment.md) for the full paths.
+For this fork from source, clone the repository, use the merged `master` branch, run `npm ci`, then `npm run build`. Use `npm run start:hosted` only for a public team-mode deployment with a Google OAuth **Web application** client, a trustworthy HTTPS issuer, and durable token storage. See [Setup](docs/setup.md), [Authentication](docs/authentication.md), [Deployment](docs/deployment.md), and [Windows local production hosting](docs/windows-local-hosting.md) for the full paths.
 
 ## Hosted team mode
 
@@ -51,6 +51,7 @@ A local authenticated deployment exposed through a secure MCP tunnel is also a f
 - [Client configuration](docs/clients.md)
 - [Authentication](docs/authentication.md)
 - [Deployment](docs/deployment.md)
+- [Windows local production hosting](docs/windows-local-hosting.md)
 - [Configuration](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
