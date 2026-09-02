@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveHostedEnvironment } from '../scripts/start-hosted.js';
+import { resolveHostedEnvironment } from '../src/hosted-env.js';
 
 describe('hosted launcher', () => {
   it('derives Replit host, port, issuer and trusted proxy safely', () => {
