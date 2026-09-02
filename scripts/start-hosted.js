@@ -9,6 +9,15 @@ function firstDomain(raw) {
     .find(Boolean);
 }
 
+/**
+ * Resolve the production HTTP/team-mode environment without mutating the
+ * caller's environment. Keeping the result explicitly typed as ProcessEnv is
+ * important because hosted platforms add provider-specific variables at
+ * runtime (for example MCP_TRUST_PROXY on Replit).
+ *
+ * @param {NodeJS.ProcessEnv} [source]
+ * @returns {NodeJS.ProcessEnv}
+ */
 export function resolveHostedEnvironment(source = process.env) {
   const port = source.MCP_HTTP_PORT || source.PORT || '3100';
   const host = source.MCP_HTTP_HOST || '0.0.0.0';
@@ -21,6 +30,7 @@ export function resolveHostedEnvironment(source = process.env) {
     );
   }
 
+  /** @type {NodeJS.ProcessEnv} */
   const env = {
     ...source,
     MCP_TRANSPORT: 'http',
