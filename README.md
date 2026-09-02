@@ -9,7 +9,7 @@ This fork exposes **182 MCP tools**. It preserves the full upstream toolset, add
 - Exact OpenAI Drive tool names such as `fetch`, `update_file`, `upload_file`, `batch_update_document`, `get_spreadsheet_cells`, and `create_presentation_from_template`.
 - Compatibility with Google’s current first-party Drive MCP tool names: `copy_file`, `create_file`, `download_file_content`, `get_file_metadata`, `get_file_permissions`, `list_recent_files`, `read_file_content`, and `search_files`.
 - The three overlapping OpenAI/Google names (`copy_file`, `create_file`, `get_file_metadata`) accept both provider dialects without duplicate tool registration.
-- Optional provider-accurate fallback to Google’s Developer Preview Drive MCP at `https://drivemcp.googleapis.com/mcp/v1`. It reuses the active Google OAuth token and falls back to the local implementation if the preview service is unavailable. Set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=false` to disable it or `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL` to override the endpoint.
+- Optional provider-accurate passthrough to Google’s Developer Preview Drive MCP at `https://drivemcp.googleapis.com/mcp/v1`. It reuses the active Google OAuth token and falls back to the local implementation if the preview service is unavailable.
 - Raw Docs, Sheets and Slides `batchUpdate` passthrough with optional file-backed image sidecars.
 - Permanent deletion, revision content reads, generic file comments, profile/metadata reads, structured Docs/Sheets/Slides inspection, native Office imports, and Drive sharing helpers.
 - OpenAI Apps/Codex file parameter metadata through `_meta["openai/fileParams"]`, including provider-file materialization and cleanup.
@@ -44,9 +44,11 @@ Applied labels on files (`list_file_labels`, `modify_file_labels`) and Drive App
 
 ## Google first-party fallback
 
-Google’s own remote Drive MCP is currently a Developer Preview. Nick Drive uses it only for the Google-MCP compatibility dialect and only when reachable. Normal upstream and OpenAI-compatible tools remain locally implemented. This makes Google’s richer file rendering, including formats such as PDF, Office files and images, available without turning the entire self-hosted server into a proxy dependency.
+Google’s remote Drive MCP is a Developer Preview and requires both `drive.googleapis.com` and `drivemcp.googleapis.com` to be enabled in the OAuth project. The passthrough is therefore **off by default**. The eight Google-compatible tool names still work through local handlers without it.
 
-The fallback timeout defaults to 20 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` (1,000–120,000 ms). A connection/auth/preview failure is logged and the local implementation is used instead.
+To enable the provider-accurate fallback after configuring the Google Cloud project, set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true`. You can override the endpoint with `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL`. The timeout defaults to 10 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` (1,000–120,000 ms).
+
+When enabled, the fallback is particularly useful for Google’s richer `read_file_content` rendering for PDF, Office/OpenDocument files and images. A connection/auth/preview failure is logged and the local implementation is used instead.
 
 ## Safety notes
 

@@ -8,15 +8,17 @@ Seventeen additional power endpoints cover modern Drive capabilities and optiona
 
 ## Google first-party Drive MCP fallback
 
-Google publishes a remote Drive MCP endpoint at `https://drivemcp.googleapis.com/mcp/v1` using Streamable HTTP and Google OAuth 2.0. Nick Drive can call that provider with the active account token for the Google-MCP dialect. If the Developer Preview is unavailable, unauthorized for the current account, disabled, or times out, the server logs the provider failure and falls back to its local implementation.
+Google publishes a remote Drive MCP endpoint at `https://drivemcp.googleapis.com/mcp/v1` using Streamable HTTP and Google OAuth 2.0. The Google Drive API and Google Drive MCP API (`drivemcp.googleapis.com`) must be enabled in the OAuth project before this passthrough can work.
+
+The passthrough is off by default. The eight Google-compatible tool names still use local handlers without it. Set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true` only after the Google Cloud project is configured. The server then tries the first-party provider with the active account's Google access token and falls back locally when the preview service is unavailable, unsupported for the account, unauthorized, or times out.
 
 This is especially useful for `read_file_content`, because Google's first-party service documents richer rendering for PDF, Office/OpenDocument files, and images than the raw Drive API alone exposes.
 
 Configuration:
 
-- `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=false` disables provider fallback.
+- `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true` enables provider fallback.
 - `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL` overrides the provider URL.
-- `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` changes the 20-second fallback timeout (bounded to 1–120 seconds).
+- `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` changes the 10-second fallback timeout (bounded to 1–120 seconds).
 
 ## Large downloads and exports
 

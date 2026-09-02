@@ -6,7 +6,7 @@ const DEFAULT_GOOGLE_DRIVE_MCP_URL = 'https://drivemcp.googleapis.com/mcp/v1';
 
 function enabled(): boolean {
   const raw = process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK?.trim().toLowerCase();
-  return raw !== '0' && raw !== 'false' && raw !== 'off' && raw !== 'no';
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
 }
 
 async function currentAccessToken(ctx: ToolContext): Promise<string> {
@@ -33,7 +33,7 @@ export async function callGoogleFirstPartyDriveTool(
   name: string,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  if (!enabled()) throw new Error('Google first-party Drive MCP fallback is disabled.');
+  if (!enabled()) throw new Error('Google first-party Drive MCP fallback is disabled. Set GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true after enabling drivemcp.googleapis.com in the OAuth project.');
   const token = await currentAccessToken(ctx);
   const endpoint = process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_URL?.trim() || DEFAULT_GOOGLE_DRIVE_MCP_URL;
   const client = new Client({ name: 'nick-drive-fallback', version: '1.0.0' }, { capabilities: {} });
@@ -41,7 +41,7 @@ export async function callGoogleFirstPartyDriveTool(
     requestInit: { headers: { Authorization: `Bearer ${token}` } },
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutMs = Math.max(1000, Math.min(Number(process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS || 20000), 120000));
+  const timeoutMs = Math.max(1000, Math.min(Number(process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS || 10000), 120000));
   try {
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error(`Google first-party Drive MCP timed out after ${timeoutMs}ms.`)), timeoutMs);
@@ -60,6 +60,7 @@ export async function tryGoogleFirstPartyDriveTool(
   name: string,
   args: Record<string, unknown>,
 ): Promise<ToolResult | null> {
+  if (!enabled()) return null;
   try {
     return await callGoogleFirstPartyDriveTool(ctx, name, args);
   } catch (error) {
