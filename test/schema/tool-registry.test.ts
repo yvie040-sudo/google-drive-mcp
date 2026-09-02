@@ -13,7 +13,7 @@ const EXPECTED_TOOL_COUNT = 195;
 
 describe('Tool Registry', () => {
   let ctx: TestContext;
-  let tools: Array<{ name: string; inputSchema?: any; _meta?: Record<string, unknown> }>;
+  let tools: Array<{ name: string; inputSchema?: any; annotations?: Record<string, unknown>; _meta?: Record<string, unknown> }>;
 
   before(async () => { ctx = await setupTestServer(); tools = (await ctx.client.listTools()).tools as any; });
   after(async () => { await ctx.cleanup(); });
@@ -56,6 +56,21 @@ describe('Tool Registry', () => {
       if (previous === undefined) delete process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK;
       else process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK = previous;
     }
+  });
+  it('publishes standard MCP safety annotations from the internal operation kind', () => {
+    const byName = new Map(tools.map((tool) => [tool.name, tool]));
+    assert.deepEqual(byName.get('search_files')?.annotations, {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+    assert.deepEqual(byName.get('create_folder')?.annotations, {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
   });
   it('marks OpenAI file-bearing arguments through standard _meta metadata', () => {
     const byName = new Map(tools.map((tool) => [tool.name, tool]));
