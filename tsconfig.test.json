@@ -8,7 +8,6 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.js",
-    "scripts/start-hosted.js",
     "test/**/*.ts"
   ],
   "exclude": [
