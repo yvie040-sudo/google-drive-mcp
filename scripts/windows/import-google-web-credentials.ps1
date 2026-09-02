@@ -39,6 +39,18 @@ New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 $secureSecret = ConvertTo-SecureString -String $clientSecret -AsPlainText -Force
 $protectedSecret = ConvertFrom-SecureString -SecureString $secureSecret
 
+$roundTripSecure = ConvertTo-SecureString -String $protectedSecret
+$roundTripBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($roundTripSecure)
+try {
+  $roundTripSecret = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($roundTripBstr)
+} finally {
+  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($roundTripBstr)
+}
+if ($roundTripSecret -cne $clientSecret) {
+  throw 'DPAPI round-trip verification failed. The source credential file was left untouched.'
+}
+$roundTripSecret = $null
+
 $payload = [ordered]@{
   version = 1
   credential_type = 'google_oauth_web'
@@ -66,5 +78,6 @@ if ($DeleteSource) {
   Remove-Item -LiteralPath $resolvedInput -Force
 }
 
+$clientSecret = $null
 Write-Output "Protected Google OAuth Web credentials stored at: $OutputPath"
 Write-Output 'The client secret was not printed and is DPAPI-bound to the current Windows user.'
