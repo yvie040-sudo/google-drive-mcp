@@ -125,3 +125,49 @@ jobs:
           Start-Sleep -Seconds 1
           $listener = Get-NetTCPConnection -LocalPort 18942 -State Listen -ErrorAction SilentlyContinue
           if ($listener) { throw 'Hosted runtime process tree was not fully cleaned up.' }
+
+      - name: Scheduled Task persistence smoke
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $runtime = Join-Path $env:RUNNER_TEMP 'nick-drive-mcp-smoke'
+          $secretPath = Join-Path $runtime 'hosted-secrets.json'
+          $taskRuntime = Join-Path $runtime 'scheduled'
+          $taskStore = Join-Path $taskRuntime 'team-store.json'
+          $taskName = 'Nick Drive MCP CI'
+          New-Item -ItemType Directory -Path $taskRuntime -Force | Out-Null
+
+          try {
+            & .\scripts\windows\install-local-host.ps1 `
+              -RepoPath $root `
+              -IssuerUrl 'https://drive-mcp.example.invalid' `
+              -Port 18943 `
+              -TrustProxyHops 1 `
+              -TaskName $taskName `
+              -SecretPath $secretPath `
+              -StorePath $taskStore `
+              -SkipBuild `
+              -StartNow
+
+            $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
+            if ([string]$task.Principal.RunLevel -ne 'Limited') {
+              throw "Scheduled Task unexpectedly requests elevated privileges: $($task.Principal.RunLevel)"
+            }
+            if (-not (Test-Path -LiteralPath $taskStore)) {
+              throw 'Scheduled Task runtime did not create its file-backed team store.'
+            }
+          } finally {
+            & .\scripts\windows\remove-local-host.ps1 `
+              -TaskName $taskName `
+              -SecretPath $secretPath `
+              -StorePath $taskStore `
+              -Confirm:$false
+          }
+
+          Start-Sleep -Seconds 2
+          if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+            throw 'Scheduled Task was not removed during cleanup.'
+          }
+          $listener = Get-NetTCPConnection -LocalPort 18943 -State Listen -ErrorAction SilentlyContinue
+          if ($listener) { throw 'Scheduled Task process tree was not fully stopped during cleanup.' }
