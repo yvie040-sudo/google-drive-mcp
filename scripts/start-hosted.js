@@ -1,51 +1,9 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
+import { resolveHostedEnvironment } from '../dist/hosted-env.js';
 
-function firstDomain(raw) {
-  return String(raw || '')
-    .split(',')
-    .map((value) => value.trim())
-    .find(Boolean);
-}
-
-/**
- * Resolve the production HTTP/team-mode environment without mutating the
- * caller's environment. Keeping the result explicitly typed as ProcessEnv is
- * important because hosted platforms add provider-specific variables at
- * runtime (for example MCP_TRUST_PROXY on Replit).
- *
- * @param {NodeJS.ProcessEnv} [source]
- * @returns {NodeJS.ProcessEnv}
- */
-export function resolveHostedEnvironment(source = process.env) {
-  const port = source.MCP_HTTP_PORT || source.PORT || '3100';
-  const host = source.MCP_HTTP_HOST || '0.0.0.0';
-  const replitDomain = firstDomain(source.REPLIT_DOMAINS);
-  const issuerUrl = source.MCP_TEAM_ISSUER_URL || (replitDomain ? `https://${replitDomain}` : undefined);
-
-  if (!issuerUrl) {
-    throw new Error(
-      'Hosted team mode needs MCP_TEAM_ISSUER_URL, or REPLIT_DOMAINS on Replit so the issuer can be derived safely.',
-    );
-  }
-
-  /** @type {NodeJS.ProcessEnv} */
-  const env = {
-    ...source,
-    MCP_TRANSPORT: 'http',
-    MCP_HTTP_PORT: String(port),
-    MCP_HTTP_HOST: host,
-    MCP_TEAM_MODE: 'true',
-    MCP_TEAM_ISSUER_URL: issuerUrl,
-  };
-
-  if (source.REPLIT_DEPLOYMENT === '1' && !source.MCP_TRUST_PROXY) {
-    env.MCP_TRUST_PROXY = '1';
-  }
-
-  return env;
-}
+export { resolveHostedEnvironment };
 
 export function runHosted() {
   let env;
