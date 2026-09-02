@@ -11,7 +11,7 @@
   "keywords": ["mcp","model-context-protocol","claude","google-drive","google-docs","google-sheets","google-slides","google-workspace","ai","llm","integration","oauth2","file-management","document-automation"],
   "type": "module",
   "bin": { "google-drive-mcp": "./dist/index.js" },
-  "files": ["dist/","docs/authentication.md","docs/clients.md","docs/configuration.md","docs/deployment.md","docs/development.md","docs/openai-drive-parity.md","docs/setup.md","docs/tools.md","docs/tools-upstream.md","docs/troubleshooting.md","README.md","LICENSE"],
+  "files": ["dist/","scripts/start-hosted.js","docs/authentication.md","docs/clients.md","docs/configuration.md","docs/deployment.md","docs/development.md","docs/openai-drive-parity.md","docs/setup.md","docs/tools.md","docs/tools-upstream.md","docs/troubleshooting.md","README.md","LICENSE"],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node scripts/build.js",
