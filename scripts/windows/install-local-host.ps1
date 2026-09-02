@@ -97,6 +97,7 @@ function Quote-TaskArgument([string]$Value) {
   return '"' + $Value.Replace('"', '""') + '"'
 }
 
+$issuerOrigin = $issuer.GetLeftPart([UriPartial]::Authority)
 $taskArguments = @(
   '-NoLogo',
   '-NoProfile',
@@ -104,7 +105,7 @@ $taskArguments = @(
   '-ExecutionPolicy', 'Bypass',
   '-File', (Quote-TaskArgument $runScript),
   '-RepoPath', (Quote-TaskArgument $repo),
-  '-IssuerUrl', (Quote-TaskArgument $issuer.GetLeftPart([UriPartial]::Authority)),
+  '-IssuerUrl', (Quote-TaskArgument $issuerOrigin),
   '-NodePath', (Quote-TaskArgument $nodeCommand.Source),
   '-Port', [string]$Port,
   '-SecretPath', (Quote-TaskArgument $SecretPath),
@@ -112,30 +113,28 @@ $taskArguments = @(
   '-TrustProxyHops', '1'
 ) -join ' '
 
-$action = New-ScheduledTaskAction \
-  -Execute $powerShellCommand.Source \
-  -Argument $taskArguments \
-  -WorkingDirectory $repo
-
+$action = New-ScheduledTaskAction -Execute $powerShellCommand.Source -Argument $taskArguments -WorkingDirectory $repo
 $startupTrigger = New-ScheduledTaskTrigger -AtStartup
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType S4U -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet \
-  -StartWhenAvailable \
-  -RestartCount 999 \
-  -RestartInterval (New-TimeSpan -Minutes 1) \
-  -ExecutionTimeLimit ([TimeSpan]::Zero) \
-  -MultipleInstances IgnoreNew \
-  -AllowStartIfOnBatteries \
-  -DontStopIfGoingOnBatteries
-
-$task = New-ScheduledTask \
-  -Action $action \
-  -Trigger @($startupTrigger, $logonTrigger) \
-  -Principal $principal \
-  -Settings $settings \
-  -Description 'Persistent local Nick Drive MCP hosted runtime. Secrets remain DPAPI-protected outside the repository.'
-
+$settingsParams = @{
+  StartWhenAvailable = $true
+  RestartCount = 999
+  RestartInterval = (New-TimeSpan -Minutes 1)
+  ExecutionTimeLimit = [TimeSpan]::Zero
+  MultipleInstances = 'IgnoreNew'
+  AllowStartIfOnBatteries = $true
+  DontStopIfGoingOnBatteries = $true
+}
+$settings = New-ScheduledTaskSettingsSet @settingsParams
+$taskParams = @{
+  Action = $action
+  Trigger = @($startupTrigger, $logonTrigger)
+  Principal = $principal
+  Settings = $settings
+  Description = 'Persistent local Nick Drive MCP hosted runtime. Secrets remain DPAPI-protected outside the repository.'
+}
+$task = New-ScheduledTask @taskParams
 Register-ScheduledTask -TaskName $TaskName -InputObject $task -Force | Out-Null
 
 if ($StartNow) {
@@ -145,13 +144,15 @@ if ($StartNow) {
   for ($attempt = 0; $attempt -lt 20; $attempt++) {
     Start-Sleep -Seconds 1
     try {
-      Invoke-WebRequest \
-        -Uri "http://127.0.0.1:$Port/mcp" \
-        -Method Get \
-        -Headers @{ Accept = 'text/event-stream' } \
-        -UseBasicParsing \
-        -TimeoutSec 2 \
-        -ErrorAction Stop | Out-Null
+      $requestParams = @{
+        Uri = "http://127.0.0.1:$Port/mcp"
+        Method = 'Get'
+        Headers = @{ Accept = 'text/event-stream' }
+        UseBasicParsing = $true
+        TimeoutSec = 2
+        ErrorAction = 'Stop'
+      }
+      Invoke-WebRequest @requestParams | Out-Null
     } catch {
       $response = $_.Exception.Response
       if ($response -and [int]$response.StatusCode -eq 401) {
@@ -170,6 +171,6 @@ if ($StartNow) {
 
 Write-Output "Scheduled task installed: $TaskName"
 Write-Output "Local origin: http://127.0.0.1:$Port"
-Write-Output "Public issuer: $($issuer.GetLeftPart([UriPartial]::Authority))"
-Write-Output "Google callback to register exactly: $($issuer.GetLeftPart([UriPartial]::Authority))/oauth/google/callback"
-Write-Output "ChatGPT MCP endpoint: $($issuer.GetLeftPart([UriPartial]::Authority))/mcp"
+Write-Output "Public issuer: $issuerOrigin"
+Write-Output "Google callback to register exactly: $issuerOrigin/oauth/google/callback"
+Write-Output "ChatGPT MCP endpoint: $issuerOrigin/mcp"
