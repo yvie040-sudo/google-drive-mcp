@@ -1,13 +1,13 @@
 # Tool reference
 
-This Nick Drive fork exposes **177 MCP tools**. It preserves every upstream tool, adds the exact current 45-name OpenAI Google Drive compatibility surface, and adds seventeen opt-in/power endpoints.
+This Nick Drive fork exposes **182 MCP tools**. It preserves every upstream tool, includes the exact current 45-name OpenAI Google Drive surface, includes the current 8-name Google first-party Drive MCP surface, and adds seventeen Nick Drive power endpoints.
 
 The original detailed upstream guide is preserved at [tools-upstream.md](tools-upstream.md). This file is the canonical registry index for the fork and is checked against the runtime in tests.
 
 ## Registered tools
 
 - **manage_accounts** - Preserved upstream endpoint.
-- **search** - OpenAI-compatible Google Drive endpoint.
+- **search** - Preserved upstream endpoint.
 - **createTextFile** - Preserved upstream endpoint.
 - **updateTextFile** - Preserved upstream endpoint.
 - **readTextFile** - Preserved upstream endpoint.
@@ -166,20 +166,25 @@ The original detailed upstream guide is preserved at [tools-upstream.md](tools-u
 - **share_file** - OpenAI-compatible Google Drive endpoint.
 - **update_file** - OpenAI-compatible Google Drive endpoint.
 - **upload_file** - OpenAI-compatible Google Drive endpoint.
-- **download_file_lro** - Nick Drive modern Drive power extension.
-- **get_download_operation** - Nick Drive modern Drive power extension.
-- **generate_drive_ids** - Nick Drive modern Drive power extension.
-- **empty_trash** - Nick Drive modern Drive power extension.
-- **list_file_labels** - Nick Drive extended Google Drive/Workspace power extension.
-- **modify_file_labels** - Nick Drive extended Google Drive/Workspace power extension.
-- **list_drive_approvals** - Nick Drive extended Google Drive/Workspace power extension.
-- **manage_drive_approval** - Nick Drive extended Google Drive/Workspace power extension.
-- **query_drive_activity** - Nick Drive extended Google Drive/Workspace power extension.
-- **drive_labels_catalog** - Nick Drive extended Google Drive/Workspace power extension.
-- **manage_drive_label_schema** - Nick Drive extended Google Drive/Workspace power extension.
-- **get_shared_drive** - Nick Drive extended Google Drive/Workspace power extension.
-- **manage_shared_drive** - Nick Drive extended Google Drive/Workspace power extension.
-- **get_drive_start_page_token** - Nick Drive extended Google Drive/Workspace power extension.
-- **list_drive_changes** - Nick Drive extended Google Drive/Workspace power extension.
-- **list_trash** - Nick Drive extended Google Drive/Workspace power extension.
-- **restore_from_trash** - Nick Drive extended Google Drive/Workspace power extension.
+- **download_file_lro** - Nick Drive extended/power endpoint.
+- **get_download_operation** - Nick Drive extended/power endpoint.
+- **generate_drive_ids** - Nick Drive extended/power endpoint.
+- **empty_trash** - Nick Drive extended/power endpoint.
+- **list_file_labels** - Nick Drive extended/power endpoint.
+- **modify_file_labels** - Nick Drive extended/power endpoint.
+- **list_drive_approvals** - Nick Drive extended/power endpoint.
+- **manage_drive_approval** - Nick Drive extended/power endpoint.
+- **query_drive_activity** - Nick Drive extended/power endpoint.
+- **drive_labels_catalog** - Nick Drive extended/power endpoint.
+- **manage_drive_label_schema** - Nick Drive extended/power endpoint.
+- **get_shared_drive** - Nick Drive extended/power endpoint.
+- **manage_shared_drive** - Nick Drive extended/power endpoint.
+- **get_drive_start_page_token** - Nick Drive extended/power endpoint.
+- **list_drive_changes** - Nick Drive extended/power endpoint.
+- **list_trash** - Nick Drive extended/power endpoint.
+- **restore_from_trash** - Nick Drive extended/power endpoint.
+- **download_file_content** - Google first-party Drive MCP compatibility endpoint.
+- **get_file_permissions** - Google first-party Drive MCP compatibility endpoint.
+- **list_recent_files** - Google first-party Drive MCP compatibility endpoint.
+- **read_file_content** - Google first-party Drive MCP compatibility endpoint.
+- **search_files** - Google first-party Drive MCP compatibility endpoint.

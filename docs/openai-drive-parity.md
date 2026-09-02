@@ -1,20 +1,34 @@
-# OpenAI Drive parity notes
+# Drive compatibility notes
 
-The compatibility layer is audited against the live Google Drive connector surface available on 2026-09-01.
+The OpenAI compatibility layer is audited against the live ChatGPT Google Drive connector surface available on 2026-09-02. The Google compatibility layer is audited against Google's first-party Drive MCP Developer Preview documentation available on the same date.
 
-The fork keeps the exact 45 official tool names and retains every upstream endpoint. Seventeen additional power endpoints cover modern Drive capabilities and optional Workspace governance features without changing the 45-name compatibility contract.
+The fork keeps the exact 45 OpenAI tool names and the exact 8 Google first-party Drive MCP tool names while retaining every upstream endpoint. Because `copy_file`, `create_file`, and `get_file_metadata` exist in both provider contracts, those three names expose a union schema and dispatch by argument dialect instead of being registered twice.
+
+Seventeen additional power endpoints cover modern Drive capabilities and optional Workspace governance features without changing either provider contract.
+
+## Google first-party Drive MCP fallback
+
+Google publishes a remote Drive MCP endpoint at `https://drivemcp.googleapis.com/mcp/v1` using Streamable HTTP and Google OAuth 2.0. Nick Drive can call that provider with the active account token for the Google-MCP dialect. If the Developer Preview is unavailable, unauthorized for the current account, disabled, or times out, the server logs the provider failure and falls back to its local implementation.
+
+This is especially useful for `read_file_content`, because Google's first-party service documents richer rendering for PDF, Office/OpenDocument files, and images than the raw Drive API alone exposes.
+
+Configuration:
+
+- `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=false` disables provider fallback.
+- `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL` overrides the provider URL.
+- `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` changes the 20-second fallback timeout (bounded to 1–120 seconds).
 
 ## Large downloads and exports
 
-`files.export` has an export size limit. Use `download_file_lro` for the Drive v3 `files.download` long-running-operation flow when a native export is too large or when working with Google Vids. Use `get_download_operation` to resume polling without keeping one MCP request open indefinitely.
+`files.export` has an export size limit. `export_file` fetches the export through the authenticated server and returns a standard MCP resource, so it never exposes a bare authenticated Google export URL. Use `download_file_lro` for the Drive v3 `files.download` long-running-operation flow when a native export is too large or when working with Google Vids. Use `get_download_operation` to resume polling without keeping one MCP request open indefinitely.
 
-Both the export and download paths preflight `capabilities.canDownload`. Google Drawings default to PNG, Apps Script projects default to the script JSON export, and Google Vids use MP4 through `files.download`.
+Both export and download paths preflight `capabilities.canDownload`. Google Drawings default to PNG, Apps Script projects default to the script JSON export, and Google Vids use MP4 through `files.download`.
 
-The standard custom-MCP equivalent of OpenAI's proprietary user-scoped `file_uri` store is an MCP `resource_link`. The fork uses standard resource links for streamed/downloadable results and embedded `resource` blocks when inline bytes are explicitly requested.
+OpenAI's hosted connector can return a proprietary user-scoped `file_uri`. A generic self-hosted MCP cannot mint that OpenAI-internal object, so the portable equivalent is standard MCP resource/resource-link content plus Drive `files.download` operations. This is an implementation difference, not a missing Drive operation.
 
 ## File parameters
 
-The import, upload, update and raw batch-image tools advertise file parameters through tool `_meta["openai/fileParams"]`, matching the Apps/Codex file-parameter bridge. The runtime can therefore resolve conversation/generated files to server-local file references before the handler runs.
+The import, upload, update and raw batch-image tools advertise file parameters through tool `_meta["openai/fileParams"]`, matching the Apps/Codex file-parameter bridge. Provided-file objects containing `download_url`/`file_id` are materialized in a temporary directory, passed to the local handler, and cleaned up after the call. Batch image placeholders are rewritten before the Google API request.
 
 ## Extended Drive power pack
 

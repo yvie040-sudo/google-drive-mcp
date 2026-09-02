@@ -10,29 +10,9 @@ const sheetsWrite = BASE_TOOL_META.createGoogleSheet;
 const slidesRead = BASE_TOOL_META.getGoogleSlidesContent;
 const slidesWrite = BASE_TOOL_META.createGoogleSlides;
 
-const activityRead: ToolMeta = {
-  opKind: 'read',
-  acceptableScopes: [
-    'https://www.googleapis.com/auth/drive.activity.readonly',
-    'https://www.googleapis.com/auth/drive.activity',
-  ],
-};
-const labelCatalogRead: ToolMeta = {
-  opKind: 'read',
-  acceptableScopes: [
-    'https://www.googleapis.com/auth/drive.labels.readonly',
-    'https://www.googleapis.com/auth/drive.labels',
-    'https://www.googleapis.com/auth/drive.admin.labels.readonly',
-    'https://www.googleapis.com/auth/drive.admin.labels',
-  ],
-};
-const labelCatalogWrite: ToolMeta = {
-  opKind: 'write',
-  acceptableScopes: [
-    'https://www.googleapis.com/auth/drive.labels',
-    'https://www.googleapis.com/auth/drive.admin.labels',
-  ],
-};
+const activityRead: ToolMeta = { opKind: 'read', acceptableScopes: ['https://www.googleapis.com/auth/drive.activity.readonly','https://www.googleapis.com/auth/drive.activity'] };
+const labelCatalogRead: ToolMeta = { opKind: 'read', acceptableScopes: ['https://www.googleapis.com/auth/drive.labels.readonly','https://www.googleapis.com/auth/drive.labels','https://www.googleapis.com/auth/drive.admin.labels.readonly','https://www.googleapis.com/auth/drive.admin.labels'] };
+const labelCatalogWrite: ToolMeta = { opKind: 'write', acceptableScopes: ['https://www.googleapis.com/auth/drive.labels','https://www.googleapis.com/auth/drive.admin.labels'] };
 
 export const TOOL_META: Record<string, ToolMeta> = {
   ...BASE_TOOL_META,
@@ -97,11 +77,13 @@ export const TOOL_META: Record<string, ToolMeta> = {
   list_drive_changes: driveRead,
   list_trash: driveRead,
   restore_from_trash: driveWrite,
+  download_file_content: driveRead,
+  get_file_permissions: driveRead,
+  list_recent_files: driveRead,
+  read_file_content: driveRead,
+  search_files: driveRead,
 };
 
-export const ADMIN_TOOLS: ReadonlySet<string> = new Set(
-  Object.entries(TOOL_META).filter(([, meta]) => meta.opKind === 'admin').map(([name]) => name),
-);
-
+export const ADMIN_TOOLS: ReadonlySet<string> = new Set(Object.entries(TOOL_META).filter(([, meta]) => meta.opKind === 'admin').map(([name]) => name));
 export { FALLBACK_META };
 export type { ToolMeta };
