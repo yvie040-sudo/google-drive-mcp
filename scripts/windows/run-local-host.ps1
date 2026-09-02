@@ -86,10 +86,14 @@ $env:MCP_TRUST_PROXY = [string]$TrustProxyHops
 $env:MCP_HTTP_ALLOWED_HOSTS = "localhost,127.0.0.1,$($issuer.DnsSafeHost)"
 $env:NODE_ENV = 'production'
 
-Set-Location -LiteralPath $repo
-& $node $launcher
-$exitCode = $LASTEXITCODE
+$exitCode = 1
+try {
+  Set-Location -LiteralPath $repo
+  & $node $launcher
+  $exitCode = $LASTEXITCODE
+} finally {
+  $env:GOOGLE_DRIVE_MCP_CLIENT_SECRET = $null
+  $clientSecret = $null
+}
 
-$env:GOOGLE_DRIVE_MCP_CLIENT_SECRET = $null
-$clientSecret = $null
 exit $exitCode
