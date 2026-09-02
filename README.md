@@ -19,6 +19,19 @@ This fork exposes **195 MCP tools**. It preserves the full upstream toolset, add
 - Cross-platform test execution so `npm test` works on Windows as well as Linux/macOS. The POSIX `0600` file-mode assertion is skipped only on Windows, where that mode is not representable.
 - `npm run start:hosted` for production-style team-mode hosting. It binds externally, consumes the platform `PORT`, derives the issuer from `REPLIT_DOMAINS` when present, and sets one trusted proxy hop only on Replit deployments. It refuses to start without a trustworthy public issuer.
 
+## Hosted team mode
+
+Build first, then run `npm run start:hosted`. Hosted mode requires a Google OAuth **Web application** client:
+
+- `GOOGLE_DRIVE_MCP_CLIENT_ID`
+- `GOOGLE_DRIVE_MCP_CLIENT_SECRET`
+
+Set `MCP_TEAM_ISSUER_URL` explicitly on generic hosts. On Replit, the launcher can derive it from the first `REPLIT_DOMAINS` entry. Register `<issuer>/oauth/google/callback` as an authorized Google redirect URI.
+
+The team store contains Google refresh tokens. Use a single process and persistent storage for `MCP_TEAM_STORE_PATH`. A memory store is suitable only for temporary testing because users must re-consent after a restart.
+
+A local authenticated deployment exposed through a secure MCP tunnel is also a first-class production option. It avoids copying Google refresh tokens to a third-party host and fits the server's single-process/session architecture well.
+
 ## Documentation
 
 - [Tool reference](docs/tools.md)
@@ -29,12 +42,6 @@ This fork exposes **195 MCP tools**. It preserves the full upstream toolset, add
 - [Deployment](docs/deployment.md)
 - [Configuration](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
-
-## Hosted team mode
-
-Build first, then run `npm run start:hosted`. Hosted mode requires the same Web OAuth credentials as ordinary team mode: `GOOGLE_DRIVE_MCP_CLIENT_ID` and `GOOGLE_DRIVE_MCP_CLIENT_SECRET`. Set `MCP_TEAM_ISSUER_URL` explicitly on generic hosts. On Replit, the launcher can derive it from the first `REPLIT_DOMAINS` entry. The Google OAuth client must register `<issuer>/oauth/google/callback` as an authorized redirect URI.
-
-The team-mode store contains Google refresh tokens. Use a single process and persistent storage for `MCP_TEAM_STORE_PATH` whenever the hosting platform has an ephemeral filesystem. A memory store is suitable only for temporary testing because users must re-consent after a restart.
 
 ## Optional scopes
 
@@ -51,11 +58,9 @@ These are not added to `DEFAULT_SCOPES`.
 
 ## Google first-party fallback
 
-Google’s remote Drive MCP is a Developer Preview and requires both `drive.googleapis.com` and `drivemcp.googleapis.com` to be enabled in the OAuth project. The passthrough is therefore **off by default**. The Google-compatible names still work through local handlers without it.
+Google’s remote Drive MCP is a Developer Preview and requires both `drive.googleapis.com` and `drivemcp.googleapis.com` to be enabled in the OAuth project. The passthrough is **off by default**. Google-compatible names still work through local handlers without it.
 
-To enable provider-accurate fallback after configuring the Google Cloud project, set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true`. You can override the endpoint with `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL`. The timeout defaults to 10 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` (1,000–120,000 ms).
-
-When enabled, the fallback is particularly useful for Google’s richer `read_file_content` rendering for PDF, Office/OpenDocument files and images. Provider failure is logged and local execution continues.
+To enable provider-accurate fallback after configuring the Google Cloud project, set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true`. You can override the endpoint with `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL`. The timeout defaults to 10 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS`.
 
 ## Safety notes
 
