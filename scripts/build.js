@@ -6,14 +6,18 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes('--watch');
+const distDir = join(__dirname, '../dist');
 
 /** @type {import('esbuild').BuildOptions} */
 const buildOptions = {
-  entryPoints: [join(__dirname, '../src/index.ts')],
+  entryPoints: [
+    join(__dirname, '../src/index.ts'),
+    join(__dirname, '../src/hosted-env.ts'),
+  ],
   bundle: true,
   platform: 'node',
   target: 'node18',
-  outfile: join(__dirname, '../dist/index.js'),
+  outdir: distDir,
   format: 'esm',
   // Remove banner for ESM format - shebang will be added by npm/npx
   // banner: {
@@ -29,11 +33,11 @@ if (isWatch) {
   console.log('Watching for changes...');
 } else {
   await esbuild.build(buildOptions);
-  
-  // Make the file executable on non-Windows platforms
+
+  // Make the CLI entrypoint executable on non-Windows platforms.
   if (process.platform !== 'win32') {
     const { chmod } = await import('fs/promises');
-    await chmod(buildOptions.outfile, 0o755);
+    await chmod(join(distDir, 'index.js'), 0o755);
   }
   console.log('Build complete!');
 }
