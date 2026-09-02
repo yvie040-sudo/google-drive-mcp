@@ -8,6 +8,8 @@ param(
 
   [int]$Port = 3100,
 
+  [int]$TrustProxyHops = 1,
+
   [string]$TaskName = 'Nick Drive MCP',
 
   [string]$SecretPath = (Join-Path $env:LOCALAPPDATA 'NickDriveMcp\hosted-secrets.json'),
@@ -23,6 +25,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($Port -lt 1 -or $Port -gt 65535) {
+  throw "Invalid port: $Port"
+}
+if ($TrustProxyHops -lt 0) {
+  throw "Invalid TrustProxyHops: $TrustProxyHops"
+}
 
 $productionBaseline = '49c06c4c36e1c0792c2af61b5bc435fe00935403'
 $repo = (Resolve-Path -LiteralPath $RepoPath).Path
@@ -110,13 +119,13 @@ $taskArguments = @(
   '-Port', [string]$Port,
   '-SecretPath', (Quote-TaskArgument $SecretPath),
   '-StorePath', (Quote-TaskArgument $StorePath),
-  '-TrustProxyHops', '1'
+  '-TrustProxyHops', [string]$TrustProxyHops
 ) -join ' '
 
 $action = New-ScheduledTaskAction -Execute $powerShellCommand.Source -Argument $taskArguments -WorkingDirectory $repo
 $startupTrigger = New-ScheduledTaskTrigger -AtStartup
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
-$principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType S4U -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType S4U -RunLevel Limited
 $settingsParams = @{
   StartWhenAvailable = $true
   RestartCount = 999
