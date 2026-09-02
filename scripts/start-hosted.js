@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveHostedEnvironment } from '../dist/hosted-env.js';
 
 export { resolveHostedEnvironment };
+
+const launcherPath = fileURLToPath(import.meta.url);
+const packageEntrypoint = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 
 export function runHosted() {
   let env;
@@ -14,7 +19,7 @@ export function runHosted() {
     process.exit(1);
   }
 
-  const child = spawn(process.execPath, ['dist/index.js', 'start'], {
+  const child = spawn(process.execPath, [packageEntrypoint, 'start'], {
     stdio: 'inherit',
     env,
   });
@@ -31,5 +36,7 @@ export function runHosted() {
   });
 }
 
-const invokedDirectly = process.argv[1] && new URL(import.meta.url).pathname.endsWith(process.argv[1].replace(/\\/g, '/'));
+const invokedDirectly = process.argv[1]
+  ? resolve(process.argv[1]) === resolve(launcherPath)
+  : false;
 if (invokedDirectly) runHosted();
