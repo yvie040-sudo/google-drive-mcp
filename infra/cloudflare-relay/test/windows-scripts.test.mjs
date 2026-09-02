@@ -64,3 +64,12 @@ test("relay removal discovers orphaned bridge runners from the registered RepoPa
   assert.match(remove, /bridge-runner\.mjs/i);
   assert.match(remove, /Get-CimInstance\s+Win32_Process/i);
 });
+test("relay production install stages dependencies outside the repository", async () => {
+  const install = await text("install-relay-client.ps1");
+  const run = await text("run-relay-client.ps1");
+  assert.match(install, /RuntimePath/i);
+  assert.match(install, /relay-runtime/i);
+  assert.doesNotMatch(install, /npmCommand\.Source\s+ci\s+--prefix\s+\$relayDir/i);
+  assert.match(run, /RuntimePath/i);
+  assert.match(run, /bridge-runner\.mjs/i);
+});

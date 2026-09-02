@@ -157,6 +157,8 @@ Install the outbound bridge as a second limited Scheduled Task:
 
 The `Nick Drive MCP Relay` task uses S4U + `RunLevel Limited`, starts at boot and logon, and decrypts the bridge key only inside its runtime process. The key is never present in the Scheduled Task arguments. The public health route must report `bridge_connected=true` before `-StartNow` succeeds.
 
+Production relay dependencies are staged into `%LOCALAPPDATA%\NickDriveMcp\relay-runtime` by default. The installer copies only the relay runtime source plus `package.json`/`package-lock.json` into a temporary staging directory, runs `npm ci --omit=dev` there, and then replaces the runtime directory. It never runs a production-only npm installation inside `infra/cloudflare-relay`, so developer dependencies such as `wrangler` remain intact. Override the location with `-RuntimePath` only when it stays outside the repository.
+
 The relay strips client-supplied `Forwarded`, `X-Forwarded-*`, `CF-*`, `Host` and hop-by-hop request headers, then supplies exactly one trusted proxy identity hop to the local MCP. With this architecture, install the MCP with `-TrustProxyHops 1`.
 
 The relay preserves manual redirects, multiple `Set-Cookie` headers and streamed MCP/SSE bodies. Requests are bounded to 4 MiB and the WSS frame limit is large enough to carry the base64-encoded maximum request plus protocol overhead.
@@ -229,7 +231,7 @@ For the outbound relay:
   -StartNow
 ```
 
-Both installers now fail closed if an existing managed listener/bridge is already present. This prevents a stale process from making a replacement installation look healthy.
+Both installers now fail closed if an existing managed listener/bridge is already present. This prevents a stale process from making a replacement installation look healthy. The relay task also records its external `RuntimePath`, while the remover remains backward-compatible with the earlier repo-based runner so old tasks and orphan processes can be cleaned up during migration.
 ## 6. Removal
 
 Removing the persistent task does not delete credentials or OAuth grants by default:

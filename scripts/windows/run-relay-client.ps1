@@ -3,6 +3,8 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$RepoPath,
 
+  [string]$RuntimePath,
+
   [Parameter(Mandatory = $true)]
   [string]$NodePath,
 
@@ -17,7 +19,12 @@ $ErrorActionPreference = 'Stop'
 if ($Port -lt 1 -or $Port -gt 65535) { throw "Invalid port: $Port" }
 $repo = (Resolve-Path -LiteralPath $RepoPath).Path
 $node = (Resolve-Path -LiteralPath $NodePath).Path
-$runner = Join-Path $repo 'infra\cloudflare-relay\src\bridge-runner.mjs'
+if ([string]::IsNullOrWhiteSpace($RuntimePath)) {
+  $runner = Join-Path $repo 'infra\cloudflare-relay\src\bridge-runner.mjs'
+} else {
+  $runtime = (Resolve-Path -LiteralPath $RuntimePath).Path
+  $runner = Join-Path $runtime 'src\bridge-runner.mjs'
+}
 if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) { throw "Relay runner not found: $runner" }
 if (-not (Test-Path -LiteralPath $SecretPath -PathType Leaf)) { throw "Protected relay credentials not found: $SecretPath" }
 

@@ -199,6 +199,68 @@ jobs:
             }
             throw 'Scheduled Task process tree was not fully stopped during cleanup.'
           }
+      - name: Relay runtime staging isolation smoke
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = $env:GITHUB_WORKSPACE
+          $relayDir = Join-Path $root 'infra\cloudflare-relay'
+          $repoWrangler = Join-Path $relayDir 'node_modules\wrangler\bin\wrangler.js'
+          if (-not (Test-Path -LiteralPath $repoWrangler -PathType Leaf)) {
+            throw 'Precondition failed: repository wrangler dev dependency is missing.'
+          }
+
+          $runtime = Join-Path $env:RUNNER_TEMP 'nick-drive-relay-runtime'
+          $secretPath = Join-Path $env:RUNNER_TEMP 'nick-drive-relay-runtime-secret.json'
+          $taskName = 'Nick Drive MCP Relay Staging CI'
+          $protected = ConvertTo-SecureString 'ci-relay-key-0123456789abcdef0123456789abcdef' -AsPlainText -Force | ConvertFrom-SecureString
+          @{
+            version = 1
+            credential_type = 'cloudflare_drive_relay'
+            relay_url = 'wss://relay.example.invalid/__relay/ws'
+            relay_key_dpapi = $protected
+          } | ConvertTo-Json | Set-Content -LiteralPath $secretPath -Encoding UTF8
+
+          try {
+            & .\scripts\windows\install-relay-client.ps1 `
+              -RepoPath $root `
+              -TaskName $taskName `
+              -SecretPath $secretPath `
+              -RuntimePath $runtime
+
+            if (-not (Test-Path -LiteralPath (Join-Path $runtime 'src\bridge-runner.mjs') -PathType Leaf)) {
+              throw 'Staged relay runner is missing.'
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $runtime 'node_modules\ws\package.json') -PathType Leaf)) {
+              throw 'Staged relay ws dependency is missing.'
+            }
+            if (Test-Path -LiteralPath (Join-Path $runtime 'node_modules\wrangler')) {
+              throw 'Production relay runtime unexpectedly contains the wrangler dev dependency.'
+            }
+            if (-not (Test-Path -LiteralPath $repoWrangler -PathType Leaf)) {
+              throw 'Production relay install mutated repository node_modules and removed wrangler.'
+            }
+
+            $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
+            $arguments = [string](@($task.Actions)[0].Arguments)
+            if ($arguments.IndexOf('-RuntimePath', [System.StringComparison]::OrdinalIgnoreCase) -lt 0 -or
+                $arguments.IndexOf($runtime, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+              throw 'Relay Scheduled Task is not pinned to the staged runtime path.'
+            }
+          } finally {
+            & .\scripts\windows\remove-relay-client.ps1 `
+              -TaskName $taskName `
+              -RepoPath $root `
+              -RuntimePath $runtime `
+              -SecretPath $secretPath `
+              -Confirm:$false
+            Remove-Item -LiteralPath $runtime -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $secretPath -Force -ErrorAction SilentlyContinue
+          }
+
+          if (-not (Test-Path -LiteralPath $repoWrangler -PathType Leaf)) {
+            throw 'Repository wrangler dev dependency disappeared after relay staging smoke.'
+          }
       - name: Orphaned hosted runtime cleanup smoke
         shell: powershell
         run: |
