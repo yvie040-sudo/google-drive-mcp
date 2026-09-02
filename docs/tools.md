@@ -1,8 +1,8 @@
 # Tool reference
 
-This Nick Drive fork exposes **182 MCP tools**. It preserves every upstream tool, includes the exact current 45-name OpenAI Google Drive surface, includes the current 8-name Google first-party Drive MCP surface, and adds seventeen Nick Drive power endpoints.
+This Nick Drive fork exposes **195 MCP tools**. It preserves every upstream tool, includes the exact current 45-name OpenAI Google Drive surface, includes the current 8-name Google first-party Drive MCP surface, and adds thirty Nick Drive power/completion endpoints.
 
-The original detailed upstream guide is preserved at [tools-upstream.md](tools-upstream.md). This file is the canonical registry index for the fork and is checked against the runtime in tests.
+The original detailed upstream tool guide is preserved at [tools-upstream.md](tools-upstream.md). This file is the canonical registry index for the fork and is checked against the runtime in tests.
 
 ## Registered tools
 
@@ -126,8 +126,8 @@ The original detailed upstream guide is preserved at [tools-upstream.md](tools-u
 - **batch_update_presentation** - OpenAI-compatible Google Drive endpoint.
 - **batch_update_spreadsheet** - OpenAI-compatible Google Drive endpoint.
 - **bulk_update_file_comments** - OpenAI-compatible Google Drive endpoint.
-- **copy_file** - OpenAI-compatible Google Drive endpoint.
-- **create_file** - OpenAI-compatible Google Drive endpoint.
+- **copy_file** - OpenAI/Google Drive MCP dual-compatible endpoint.
+- **create_file** - OpenAI/Google Drive MCP dual-compatible endpoint.
 - **create_folder** - OpenAI-compatible Google Drive endpoint.
 - **create_presentation_from_template** - OpenAI-compatible Google Drive endpoint.
 - **delete_file** - OpenAI-compatible Google Drive endpoint.
@@ -142,7 +142,7 @@ The original detailed upstream guide is preserved at [tools-upstream.md](tools-u
 - **get_document_tables** - OpenAI-compatible Google Drive endpoint.
 - **get_document_text** - OpenAI-compatible Google Drive endpoint.
 - **get_file_comments** - OpenAI-compatible Google Drive endpoint.
-- **get_file_metadata** - OpenAI-compatible Google Drive endpoint.
+- **get_file_metadata** - OpenAI/Google Drive MCP dual-compatible endpoint.
 - **get_presentation** - OpenAI-compatible Google Drive endpoint.
 - **get_presentation_comments** - OpenAI-compatible Google Drive endpoint.
 - **get_presentation_outline** - OpenAI-compatible Google Drive endpoint.
@@ -166,25 +166,38 @@ The original detailed upstream guide is preserved at [tools-upstream.md](tools-u
 - **share_file** - OpenAI-compatible Google Drive endpoint.
 - **update_file** - OpenAI-compatible Google Drive endpoint.
 - **upload_file** - OpenAI-compatible Google Drive endpoint.
-- **download_file_lro** - Nick Drive extended/power endpoint.
-- **get_download_operation** - Nick Drive extended/power endpoint.
-- **generate_drive_ids** - Nick Drive extended/power endpoint.
-- **empty_trash** - Nick Drive extended/power endpoint.
-- **list_file_labels** - Nick Drive extended/power endpoint.
-- **modify_file_labels** - Nick Drive extended/power endpoint.
-- **list_drive_approvals** - Nick Drive extended/power endpoint.
-- **manage_drive_approval** - Nick Drive extended/power endpoint.
-- **query_drive_activity** - Nick Drive extended/power endpoint.
-- **drive_labels_catalog** - Nick Drive extended/power endpoint.
-- **manage_drive_label_schema** - Nick Drive extended/power endpoint.
-- **get_shared_drive** - Nick Drive extended/power endpoint.
-- **manage_shared_drive** - Nick Drive extended/power endpoint.
-- **get_drive_start_page_token** - Nick Drive extended/power endpoint.
-- **list_drive_changes** - Nick Drive extended/power endpoint.
-- **list_trash** - Nick Drive extended/power endpoint.
-- **restore_from_trash** - Nick Drive extended/power endpoint.
+- **download_file_lro** - Nick Drive power endpoint.
+- **get_download_operation** - Nick Drive power endpoint.
+- **generate_drive_ids** - Nick Drive power endpoint.
+- **empty_trash** - Nick Drive power endpoint.
+- **list_file_labels** - Nick Drive power endpoint.
+- **modify_file_labels** - Nick Drive power endpoint.
+- **list_drive_approvals** - Nick Drive power endpoint.
+- **manage_drive_approval** - Nick Drive power endpoint.
+- **query_drive_activity** - Nick Drive power endpoint.
+- **drive_labels_catalog** - Nick Drive power endpoint.
+- **manage_drive_label_schema** - Nick Drive power endpoint.
+- **get_shared_drive** - Nick Drive power endpoint.
+- **manage_shared_drive** - Nick Drive power endpoint.
+- **get_drive_start_page_token** - Nick Drive power endpoint.
+- **list_drive_changes** - Nick Drive power endpoint.
+- **list_trash** - Nick Drive power endpoint.
+- **restore_from_trash** - Nick Drive power endpoint.
 - **download_file_content** - Google first-party Drive MCP compatibility endpoint.
 - **get_file_permissions** - Google first-party Drive MCP compatibility endpoint.
 - **list_recent_files** - Google first-party Drive MCP compatibility endpoint.
 - **read_file_content** - Google first-party Drive MCP compatibility endpoint.
 - **search_files** - Google first-party Drive MCP compatibility endpoint.
+- **list_access_proposals** - Drive-v3 completion endpoint for access proposals get/list.
+- **resolve_access_proposal** - Drive-v3 completion endpoint for access proposal accept/deny.
+- **get_drive_app** - Drive-v3 completion endpoint for apps.get.
+- **list_drive_apps** - Drive-v3 completion endpoint for apps.list.
+- **get_drive_comment** - Drive-v3 completion endpoint for comments.get.
+- **modify_drive_comment** - Drive-v3 completion endpoint for comments.update/delete.
+- **list_drive_replies** - Drive-v3 completion endpoint for replies.get/list.
+- **modify_drive_reply** - Drive-v3 completion endpoint for replies.create/update/delete.
+- **get_file_permission** - Drive-v3 completion endpoint for permissions.get.
+- **manage_file_revision** - Drive-v3 completion endpoint for revisions.update/delete.
+- **watch_drive_resource** - Drive-v3 completion endpoint for files.watch/changes.watch.
+- **stop_drive_channel** - Drive-v3 completion endpoint for channels.stop.
+- **generate_drive_cse_token** - Drive-v3 completion endpoint for files.generateCseToken.

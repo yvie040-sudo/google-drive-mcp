@@ -6,6 +6,7 @@ export const SCOPE_ALIASES: Record<string, string> = {
   drive: 'https://www.googleapis.com/auth/drive',
   'drive.file': 'https://www.googleapis.com/auth/drive.file',
   'drive.readonly': 'https://www.googleapis.com/auth/drive.readonly',
+  'drive.apps.readonly': 'https://www.googleapis.com/auth/drive.apps.readonly',
   documents: 'https://www.googleapis.com/auth/documents',
   spreadsheets: 'https://www.googleapis.com/auth/spreadsheets',
   presentations: 'https://www.googleapis.com/auth/presentations',
@@ -34,10 +35,9 @@ export const DEFAULT_SCOPES: readonly string[] = [
 /**
  * Optional power-pack scopes are deliberately aliases only. They are NOT added
  * to DEFAULT_SCOPES, so ordinary Drive parity does not silently broaden consent.
- * Operators can opt in through GOOGLE_DRIVE_MCP_SCOPES when they want Drive
- * Activity or Drive Labels schema tools.
  */
 export const OPTIONAL_POWER_SCOPES: readonly string[] = [
+  SCOPE_ALIASES['drive.apps.readonly'],
   SCOPE_ALIASES['drive.activity.readonly'],
   SCOPE_ALIASES['drive.activity'],
   SCOPE_ALIASES['drive.labels.readonly'],

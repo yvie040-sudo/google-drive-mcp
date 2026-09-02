@@ -5,10 +5,11 @@ import {
   GOOGLE_DRIVE_REMOTE_MCP_TOOL_NAMES,
   NICK_DRIVE_EXTRA_TOOL_NAMES,
   NICK_DRIVE_EXTENDED_TOOL_NAMES,
+  GOOGLE_DRIVE_V3_COMPLETION_TOOL_NAMES,
 } from '../../src/parity/openai-drive-contract.js';
 import { setupTestServer, type TestContext } from '../helpers/setup-server.js';
 
-const EXPECTED_TOOL_COUNT = 182;
+const EXPECTED_TOOL_COUNT = 195;
 
 describe('Tool Registry', () => {
   let ctx: TestContext;
@@ -36,10 +37,11 @@ describe('Tool Registry', () => {
     const names = new Set(tools.map((tool) => tool.name));
     assert.deepEqual(GOOGLE_DRIVE_REMOTE_MCP_TOOL_NAMES.filter((name) => !names.has(name)), []);
   });
-  it('advertises every Nick Drive power extension', () => {
+  it('advertises every Nick Drive power and Drive-v3 completion extension', () => {
     const names = new Set(tools.map((tool) => tool.name));
     assert.deepEqual(NICK_DRIVE_EXTRA_TOOL_NAMES.filter((name) => !names.has(name)), []);
     assert.deepEqual(NICK_DRIVE_EXTENDED_TOOL_NAMES.filter((name) => !names.has(name)), []);
+    assert.deepEqual(GOOGLE_DRIVE_V3_COMPLETION_TOOL_NAMES.filter((name) => !names.has(name)), []);
   });
   it('every advertised tool reaches a handler rather than Tool not found', async () => {
     const previous = process.env.GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK;

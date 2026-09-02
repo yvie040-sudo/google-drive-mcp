@@ -10,9 +10,17 @@ const sheetsWrite = BASE_TOOL_META.createGoogleSheet;
 const slidesRead = BASE_TOOL_META.getGoogleSlidesContent;
 const slidesWrite = BASE_TOOL_META.createGoogleSlides;
 
+const DOCUMENTS = 'https://www.googleapis.com/auth/documents';
+const DRIVE_APPS_READONLY = 'https://www.googleapis.com/auth/drive.apps.readonly';
 const activityRead: ToolMeta = { opKind: 'read', acceptableScopes: ['https://www.googleapis.com/auth/drive.activity.readonly','https://www.googleapis.com/auth/drive.activity'] };
 const labelCatalogRead: ToolMeta = { opKind: 'read', acceptableScopes: ['https://www.googleapis.com/auth/drive.labels.readonly','https://www.googleapis.com/auth/drive.labels','https://www.googleapis.com/auth/drive.admin.labels.readonly','https://www.googleapis.com/auth/drive.admin.labels'] };
 const labelCatalogWrite: ToolMeta = { opKind: 'write', acceptableScopes: ['https://www.googleapis.com/auth/drive.labels','https://www.googleapis.com/auth/drive.admin.labels'] };
+const driveAppsRead: ToolMeta = { opKind: 'read', acceptableScopes: [DRIVE_APPS_READONLY] };
+const driveAppGetRead: ToolMeta = { opKind: 'read', acceptableScopes: [...driveRead.acceptableScopes, DRIVE_APPS_READONLY] };
+const accessProposalRead: ToolMeta = { opKind: 'read', acceptableScopes: [...driveRead.acceptableScopes, DOCUMENTS] };
+const accessProposalWrite: ToolMeta = { opKind: 'write', acceptableScopes: [...driveWrite.acceptableScopes, DOCUMENTS] };
+const watchWrite: ToolMeta = { opKind: 'write', acceptableScopes: driveRead.acceptableScopes };
+const cseWrite: ToolMeta = { opKind: 'write', acceptableScopes: ['https://www.googleapis.com/auth/drive', DOCUMENTS] };
 
 export const TOOL_META: Record<string, ToolMeta> = {
   ...BASE_TOOL_META,
@@ -82,6 +90,19 @@ export const TOOL_META: Record<string, ToolMeta> = {
   list_recent_files: driveRead,
   read_file_content: driveRead,
   search_files: driveRead,
+  list_access_proposals: accessProposalRead,
+  resolve_access_proposal: accessProposalWrite,
+  get_drive_app: driveAppGetRead,
+  list_drive_apps: driveAppsRead,
+  get_drive_comment: driveRead,
+  modify_drive_comment: driveWrite,
+  list_drive_replies: driveRead,
+  modify_drive_reply: driveWrite,
+  get_file_permission: driveRead,
+  manage_file_revision: driveWrite,
+  watch_drive_resource: watchWrite,
+  stop_drive_channel: watchWrite,
+  generate_drive_cse_token: cseWrite,
 };
 
 export const ADMIN_TOOLS: ReadonlySet<string> = new Set(Object.entries(TOOL_META).filter(([, meta]) => meta.opKind === 'admin').map(([name]) => name));

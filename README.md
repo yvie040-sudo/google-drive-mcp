@@ -2,29 +2,26 @@
 
 A self-hosted Google Drive, Docs, Sheets and Slides MCP fork based on `piotr-agier/google-drive-mcp` v2.6.0.
 
-This fork exposes **182 MCP tools**. It preserves the full upstream toolset, adds the exact current 45-name OpenAI Google Drive compatibility surface, adds the current 8-name Google first-party Drive MCP surface, and adds 17 modern/extended Drive power endpoints.
+This fork exposes **195 MCP tools**. It preserves the full upstream toolset, adds the exact current 45-name OpenAI Google Drive compatibility surface, adds the current 8-name Google first-party Drive MCP surface, and completes the practical non-deprecated Google Drive v3 REST resource surface with explicit power endpoints.
 
 ## What this fork adds
 
 - Exact OpenAI Drive tool names such as `fetch`, `update_file`, `upload_file`, `batch_update_document`, `get_spreadsheet_cells`, and `create_presentation_from_template`.
-- Compatibility with Google’s current first-party Drive MCP tool names: `copy_file`, `create_file`, `download_file_content`, `get_file_metadata`, `get_file_permissions`, `list_recent_files`, `read_file_content`, and `search_files`.
-- The three overlapping OpenAI/Google names (`copy_file`, `create_file`, `get_file_metadata`) accept both provider dialects without duplicate tool registration.
-- Optional provider-accurate passthrough to Google’s Developer Preview Drive MCP at `https://drivemcp.googleapis.com/mcp/v1`. It reuses the active Google OAuth token and falls back to the local implementation if the preview service is unavailable.
+- Compatibility with Google’s current first-party Drive MCP names: `copy_file`, `create_file`, `download_file_content`, `get_file_metadata`, `get_file_permissions`, `list_recent_files`, `read_file_content`, and `search_files`.
+- The three overlapping OpenAI/Google names (`copy_file`, `create_file`, `get_file_metadata`) accept both provider dialects without duplicate registration.
+- Complete practical coverage of current non-deprecated Drive v3 REST resources: about, access proposals, approvals, apps, changes, channels, comments, drives, files, operations, permissions, replies, and revisions.
 - Raw Docs, Sheets and Slides `batchUpdate` passthrough with optional file-backed image sidecars.
-- Permanent deletion, revision content reads, generic file comments, profile/metadata reads, structured Docs/Sheets/Slides inspection, native Office imports, and Drive sharing helpers.
+- Permanent deletion, revision content reads/mutation, generic comment/reply CRUD, permission lookup, access-proposal resolution, profile/metadata reads, native Office imports, Drive sharing, labels, approvals, Shared Drive administration, changes/delta sync, trash restore and CSE token generation.
+- Google Drive push-channel registration for files or the changes feed plus explicit channel shutdown. Webhook registration refuses non-HTTPS callback addresses.
 - OpenAI Apps/Codex file parameter metadata through `_meta["openai/fileParams"]`, including provider-file materialization and cleanup.
-- `search` compatibility fields including cursor pagination, provider filters, item-type filters and optional best-effort text hydration.
-- `download_file_lro` and `get_download_operation` for Drive v3 `files.download`, including Google Vids and large native exports beyond the `files.export` size limit.
-- `generate_drive_ids` for advanced transactional creation flows.
-- `empty_trash` guarded by `confirm=true`.
-- Applied file label listing/modification, Drive approvals, Shared Drive administration, Drive changes/delta sync, trash listing/restore.
-- Optional Drive Activity and Drive Labels schema tools. Their extra OAuth scopes are available as aliases but are deliberately not added to the default consent grant.
+- Authenticated MCP resource output for exports. Large native downloads use Drive `files.download` long-running operations.
+- Optional Drive Activity and Drive Labels schema operations. Their extra OAuth scopes are aliases only and are deliberately not added to the default consent grant.
 - Cross-platform test execution so `npm test` works on Windows as well as Linux/macOS. The POSIX `0600` file-mode assertion is skipped only on Windows, where that mode is not representable.
 
 ## Documentation
 
 - [Tool reference](docs/tools.md)
-- [OpenAI Drive parity notes](docs/openai-drive-parity.md)
+- [Drive compatibility notes](docs/openai-drive-parity.md)
 - [Setup](docs/setup.md)
 - [Client configuration](docs/clients.md)
 - [Authentication](docs/authentication.md)
@@ -32,29 +29,32 @@ This fork exposes **182 MCP tools**. It preserves the full upstream toolset, add
 - [Configuration](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-## Optional power-pack scopes
+## Optional scopes
 
-Ordinary Drive parity continues to use the upstream default scopes. To use Drive Activity or the Drive Labels schema API, explicitly include the relevant scope aliases in `GOOGLE_DRIVE_MCP_SCOPES` together with any ordinary scopes you still need:
+Ordinary OpenAI parity, Google-MCP compatibility, access proposals, approvals, changes, comments, permissions, revisions, watches and most Drive-v3 completion routes use the existing Drive scopes.
 
+Extra aliases are available through `GOOGLE_DRIVE_MCP_SCOPES` when needed:
+
+- `drive.apps.readonly` for listing installed/authorized Drive apps
 - `drive.activity.readonly` or `drive.activity`
 - `drive.labels.readonly` or `drive.labels`
 - `drive.admin.labels.readonly` or `drive.admin.labels`
 
-Applied labels on files (`list_file_labels`, `modify_file_labels`) and Drive Approvals use normal Drive scopes and do not require this extra consent.
+These are not added to `DEFAULT_SCOPES`.
 
 ## Google first-party fallback
 
-Google’s remote Drive MCP is a Developer Preview and requires both `drive.googleapis.com` and `drivemcp.googleapis.com` to be enabled in the OAuth project. The passthrough is therefore **off by default**. The eight Google-compatible tool names still work through local handlers without it.
+Google’s remote Drive MCP is a Developer Preview and requires both `drive.googleapis.com` and `drivemcp.googleapis.com` to be enabled in the OAuth project. The passthrough is therefore **off by default**. The Google-compatible names still work through local handlers without it.
 
-To enable the provider-accurate fallback after configuring the Google Cloud project, set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true`. You can override the endpoint with `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL`. The timeout defaults to 10 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` (1,000–120,000 ms).
+To enable provider-accurate fallback after configuring the Google Cloud project, set `GOOGLE_DRIVE_FIRST_PARTY_MCP_FALLBACK=true`. You can override the endpoint with `GOOGLE_DRIVE_FIRST_PARTY_MCP_URL`. The timeout defaults to 10 seconds and can be changed with `GOOGLE_DRIVE_FIRST_PARTY_MCP_TIMEOUT_MS` (1,000–120,000 ms).
 
-When enabled, the fallback is particularly useful for Google’s richer `read_file_content` rendering for PDF, Office/OpenDocument files and images. A connection/auth/preview failure is logged and the local implementation is used instead.
+When enabled, the fallback is particularly useful for Google’s richer `read_file_content` rendering for PDF, Office/OpenDocument files and images. Provider failure is logged and local execution continues.
 
 ## Safety notes
 
-`delete_file`, `empty_trash`, Shared Drive deletion, approval actions, and label-schema mutations can be destructive or externally visible. `empty_trash` refuses to run unless `confirm=true`. Shared Drive item deletion requires domain-admin mode. Google Sheets image sidecars can remain in Drive when a formula keeps referencing their URL; the tool reports those retained files explicitly.
+`delete_file`, `empty_trash`, Shared Drive deletion, access-proposal resolution, approval actions, permission changes, revision deletion, label-schema mutations, CSE operations and webhook registration can be destructive or externally visible. `empty_trash` refuses to run unless `confirm=true`. Watch registration requires an explicit HTTPS callback address; Nick Drive never invents or auto-publishes one.
 
-The current OpenAI and Google Drive MCP compatibility contracts are frozen in `src/parity/openai-drive-contract.ts` and checked in tests so a future upstream merge cannot silently remove a provider route.
+The current OpenAI, Google Drive MCP, and Drive-v3 completion contracts are frozen in `src/parity/openai-drive-contract.ts` and checked in tests so future upstream merges cannot silently remove a route.
 
 ## License
 
