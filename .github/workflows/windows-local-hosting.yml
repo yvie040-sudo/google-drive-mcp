@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/windows-local-hosting.yml
       - scripts/windows/**
+      - infra/cloudflare-relay/**
+      - docs/windows-local-hosting.md
       - src/**
       - scripts/start-hosted.js
       - package.json
@@ -17,6 +19,8 @@ on:
     paths:
       - .github/workflows/windows-local-hosting.yml
       - scripts/windows/**
+      - infra/cloudflare-relay/**
+      - docs/windows-local-hosting.md
       - src/**
       - scripts/start-hosted.js
       - package.json
@@ -48,6 +52,13 @@ jobs:
           npm run build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Install and test Cloudflare relay
+        shell: pwsh
+        run: |
+          npm ci --prefix infra/cloudflare-relay
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test --prefix infra/cloudflare-relay
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Parse Windows PowerShell scripts
         shell: powershell
         run: |

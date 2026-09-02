@@ -53,3 +53,6 @@ coverage/
 *.temp
 .cache/
 .tmp-test/
+
+# Cloudflare local state
+.wrangler/

@@ -1,0 +1,15 @@
+{
+  "name": "@nick/drive-mcp-cloudflare-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
+  }
+}

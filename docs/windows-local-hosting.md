@@ -7,7 +7,8 @@ This path runs the existing hosted/team-mode MCP on a Windows PC as a single per
 ```text
 ChatGPT
   -> fixed public HTTPS issuer
-  -> secure ingress / tunnel
+  -> Cloudflare Worker + Durable Object relay
+  <-> outbound authenticated WSS bridge from the Windows PC
   -> http://127.0.0.1:3100
   -> Nick Drive MCP hosted team mode
   -> Google OAuth as the signed-in MCP user
@@ -124,6 +125,51 @@ Do **not** blindly run `cloudflared service install` or overwrite `%USERPROFILE%
 A Cloudflare Quick Tunnel is not a production issuer because its hostname is temporary. The final route needs a stable hostname suitable for the exact Google OAuth callback above.
 
 If an existing Secure MCP Tunnel / Worker relay is already the canonical ingress for other local MCPs, verify whether it can proxy this MCP's full Streamable HTTP + OAuth surface before creating a separate named tunnel.
+
+### Dedicated Cloudflare Worker relay
+
+This repository also contains an isolated relay under `infra/cloudflare-relay/` for machines that have a Cloudflare Workers account but no DNS zone suitable for a named Tunnel. It does not open an inbound port on Windows. Instead, the PC keeps one authenticated outbound WSS connection to a Durable Object, while the Worker exposes the complete HTTPS origin needed by MCP and Google OAuth.
+
+Provision or update the Worker and create the local DPAPI-protected relay credential:
+
+```powershell
+.\scripts\windows\deploy-cloudflare-relay.ps1 `
+  -RepoPath 'C:\path\to\google-drive-mcp'
+```
+
+The deployment script:
+
+- deploys the `nick-drive-mcp` Worker from `infra/cloudflare-relay/`;
+- generates a high-entropy bridge key unless an existing protected key is being reused;
+- uploads the bridge key to Cloudflare only as the `DRIVE_RELAY_KEY` Worker secret;
+- stores only a current-user DPAPI blob in `%LOCALAPPDATA%\NickDriveMcp\relay-secrets.json`;
+- restricts that file to the current Windows identity;
+- verifies the public health route after Cloudflare propagation;
+- prints the exact issuer, Google callback and MCP endpoint without printing the bridge key.
+
+Install the outbound bridge as a second limited Scheduled Task:
+
+```powershell
+.\scripts\windows\install-relay-client.ps1 `
+  -RepoPath 'C:\path\to\google-drive-mcp' `
+  -StartNow
+```
+
+The `Nick Drive MCP Relay` task uses S4U + `RunLevel Limited`, starts at boot and logon, and decrypts the bridge key only inside its runtime process. The key is never present in the Scheduled Task arguments. The public health route must report `bridge_connected=true` before `-StartNow` succeeds.
+
+The relay strips client-supplied `Forwarded`, `X-Forwarded-*`, `CF-*`, `Host` and hop-by-hop request headers, then supplies exactly one trusted proxy identity hop to the local MCP. With this architecture, install the MCP with `-TrustProxyHops 1`.
+
+The relay preserves manual redirects, multiple `Set-Cookie` headers and streamed MCP/SSE bodies. Requests are bounded to 4 MiB and the WSS frame limit is large enough to carry the base64-encoded maximum request plus protocol overhead.
+
+Current verified production shape for this deployment:
+
+```text
+issuer:   https://nick-drive-mcp.xvibenl.workers.dev
+callback: https://nick-drive-mcp.xvibenl.workers.dev/oauth/google/callback
+MCP:      https://nick-drive-mcp.xvibenl.workers.dev/mcp
+```
+
+Do not copy a relay secret, DPAPI blob, Google refresh token, MCP access token or team-store content into the repository or CI logs.
 
 ## 4. ChatGPT endpoint
 

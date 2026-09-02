@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nick-drive-mcp",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-27",
+  "workers_dev": true,
+  "minify": true,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DRIVE_RELAY",
+        "class_name": "DriveRelay"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DriveRelay"]
+    }
+  ]
+}
