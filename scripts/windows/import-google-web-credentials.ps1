@@ -11,7 +11,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if (-not $IsWindows) {
+$isWindowsHost = if ($PSVersionTable.PSEdition -eq 'Core') {
+  [bool]$IsWindows
+} else {
+  $env:OS -eq 'Windows_NT'
+}
+if (-not $isWindowsHost) {
   throw 'This script is Windows-only because it relies on Windows DPAPI through ConvertFrom-SecureString.'
 }
 
